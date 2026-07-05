@@ -9,6 +9,9 @@ import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import BrowsePage from './pages/BrowsePage'
 import DashboardPage from './pages/DashboardPage'
+import BookmarksPage from './pages/BookmarksPage'
+import ProfilePage from './pages/ProfilePage'
+import ReadingHistoryPage from './pages/ReadingHistoryPage'
 
 function InLayout({ children, adminOnly = false }) {
   return (
@@ -57,14 +60,14 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
 
       {/* Student area */}
-      <Route path="/dashboard" element={<InLayout><PlaceholderPage title="Dashboard" /></InLayout>} />
+      <Route path="/dashboard" element={<InLayout><DashboardPage /></InLayout>} />
       <Route path="/browse" element={<InLayout><BrowsePage /></InLayout>} />
       <Route path="/search" element={<InLayout><PlaceholderPage title="Search" /></InLayout>} />
       <Route path="/theses/:id" element={<InLayout><PlaceholderPage title="Thesis Details" /></InLayout>} />
       <Route path="/theses/:id/view" element={<ProtectedRoute><PlaceholderPage title="PDF Viewer" /></ProtectedRoute>} />
-      <Route path="/bookmarks" element={<InLayout><PlaceholderPage title="My Bookmarks" /></InLayout>} />
-      <Route path="/history" element={<InLayout><PlaceholderPage title="Reading History" /></InLayout>} />
-      <Route path="/profile" element={<InLayout><PlaceholderPage title="My Profile" /></InLayout>} />
+      <Route path="/bookmarks" element={<InLayout><BookmarksPage /></InLayout>} />
+      <Route path="/history" element={<InLayout><ReadingHistoryPage /></InLayout>} />
+      <Route path="/profile" element={<InLayout><ProfilePage /></InLayout>} />
 
       {/* Admin area */}
       <Route path="/admin" element={<InLayout adminOnly><PlaceholderPage title="Admin Dashboard" /></InLayout>} />
