@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import api from '../api/axios'
+import api, { apiOrigin } from '../api/axios'
 
 // Dept → icon + cover color (matches the mockup styling)
 const DEPT_META = {
@@ -433,7 +433,12 @@ export default function BrowsePage() {
                   <div className="result-card" key={t.id}>
                     <div className="result-card-header">
                       <div className={`result-cover ${meta.cover}`}>
-                        <i className={`fas ${meta.icon}`}></i>
+                        {t.category?.cover_image_path ? (
+                          <img src={`${apiOrigin}/storage/${t.category.cover_image_path}`} alt=""
+                               style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+                        ) : (
+                          <i className={`fas ${meta.icon}`}></i>
+                        )}
                       </div>
                       <div className="result-body">
                         <div

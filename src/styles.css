@@ -216,7 +216,11 @@ input, select, textarea { font-family: inherit; }
   z-index: 100;
   display: flex;
   flex-direction: column;
+  transition: transform 0.25s ease;
 }
+
+.sidebar.collapsed { transform: translateX(-100%); }
+.main-wrap.sidebar-collapsed { margin-left: 0; }
 
 .sidebar-brand {
   padding: 18px 20px;
@@ -316,6 +320,7 @@ input, select, textarea { font-family: inherit; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.25s ease;
 }
 
 /* ============ TOP HEADER ============ */
@@ -612,6 +617,13 @@ input, select, textarea { font-family: inherit; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-warning { background: var(--warning); color: #fff; }
+
+.btn-bookmarked {
+  background: rgba(52, 95, 207, .1);
+  color: var(--primary-blue);
+  border-color: var(--primary-blue);
+}
+.btn-bookmarked:hover { background: rgba(52, 95, 207, .16); }
 
 .btn-sm { padding: 6px 12px; font-size: 12px; }
 .btn-icon {
@@ -1552,6 +1564,48 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .notice-banner.warning { background: var(--warning-bg); color: var(--warning); border-left-color: var(--warning); }
 .notice-banner.success { background: var(--success-bg); color: var(--success); border-left-color: var(--success); }
 .notice-banner i { font-size: 16px; }
+
+/* ============ TOASTS ============ */
+.toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.toast-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fff;
+  border-left: 4px solid var(--info);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(20, 25, 40, .16);
+  padding: 13px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  animation: toast-in 0.2s ease;
+}
+
+.toast-item i:first-child { font-size: 16px; color: var(--info); margin-top: 1px; }
+.toast-message { flex: 1; white-space: pre-line; line-height: 1.5; }
+.toast-close { color: var(--text-muted); font-size: 12px; }
+.toast-close:hover { color: var(--text-primary); }
+
+.toast-success { border-left-color: var(--success); }
+.toast-success i:first-child { color: var(--success); }
+.toast-error { border-left-color: var(--danger); }
+.toast-error i:first-child { color: var(--danger); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 
 /* ============ UTILS ============ */
 .text-center { text-align: center; }

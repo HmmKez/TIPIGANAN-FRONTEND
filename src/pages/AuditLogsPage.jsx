@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { auditApi } from '../api/admin'
+import { useToast } from '../components/Toast'
 
 const ACTION_ICONS = {
   login: 'fa-sign-in-alt', logout: 'fa-sign-out-alt', register: 'fa-user-plus',
@@ -22,6 +23,7 @@ const classFor = (a) => {
 }
 
 export default function AuditLogsPage() {
+  const { notify } = useToast()
   const [logs, setLogs] = useState([])
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
   const [loading, setLoading] = useState(true)
@@ -33,6 +35,7 @@ export default function AuditLogsPage() {
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [detail, setDetail] = useState(null)
+  const [exporting, setExporting] = useState(false)
 
   const tabAction = {
     all: undefined, login: 'login', view: 'view_thesis',
@@ -86,6 +89,37 @@ export default function AuditLogsPage() {
     setPage(1)
   }
 
+  // The backend only applies date_from/date_to when period='custom' is
+  // explicitly sent (otherwise it silently defaults to "last month",
+  // ignoring whatever's on screen) — so export always sends period=custom
+  // with the exact range currently shown here, defaulting to "everything
+  // up to today" when no range is set, so the PDF matches the visible list.
+  const exportLogs = async () => {
+    const from = dateFrom || '2000-01-01'
+    const to = dateTo || new Date().toISOString().slice(0, 10)
+    setExporting(true)
+    try {
+      const res = await auditApi.exportPdf({
+        period: 'custom',
+        date_from: from,
+        date_to: to,
+        action: tabAction[tab],
+      })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'audit-log-export.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+      notify(`Audit log PDF downloaded (${from} to ${to}).`, 'success')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Export failed — requires the export_reports permission.', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <main className="content">
       <div className="page-header">
@@ -96,6 +130,19 @@ export default function AuditLogsPage() {
           <div className="page-title">Audit Logs</div>
           <div className="page-subtitle">System activity tracking and security audit trail.</div>
         </div>
+        <button className="btn btn-primary" onClick={exportLogs} disabled={exporting}
+                title="Exports Timestamp, User, Action, and Description columns for the date range and activity type currently selected below.">
+          <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
+          {exporting ? ' Exporting…' : ' Export PDF'}
+        </button>
+      </div>
+
+      <div className="notice-banner" style={{ marginBottom: 16 }}>
+        <i className="fas fa-info-circle"></i>
+        <span>
+          Export PDF includes <b>Timestamp, User, Action, and Description</b> for the date range and
+          activity type currently selected below — set the range and tab first, then export.
+        </span>
       </div>
 
       {/* Date Range Presets */}

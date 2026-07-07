@@ -259,7 +259,7 @@ export default function ProfilePage() {
       {activeTab === 'activity' && (
         <div className="panel">
           <div className="panel-header">
-            <div className="panel-title"><i className="fas fa-bell" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>Recent Activity</div>
+            <div className="panel-title"><i className="fas fa-history" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>Recent Activity</div>
           </div>
           <div className="panel-body" style={{ padding: '14px 22px' }}>
             {activityItems.length === 0 ? (

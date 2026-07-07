@@ -187,7 +187,7 @@ export default function LandingPage() {
             <p>TIPIGANAN is the official MDC online repository of special and rare collections — a digitally preserved home for thesis manuscripts, faculty research, institutional publications, and Boholano academic heritage.</p>
             <div className="lp-hero-actions">
               <Link to="/register" className="lp-hero-cta"><i className="fas fa-rocket"></i> Get Started</Link>
-              <Link to="/login" className="lp-hero-secondary"><i className="fas fa-book-open"></i> Browse Collections</Link>
+              <Link to="/browse" className="lp-hero-secondary"><i className="fas fa-book-open"></i> Browse Collections</Link>
             </div>
           </div>
         </section>
@@ -244,7 +244,7 @@ export default function LandingPage() {
             <p className="subtitle">Explore collections curated by each college of Mater Dei.</p>
             <div className="lp-dept-grid">
               {DEPARTMENTS.map(d => (
-                <Link to="/login" key={d.code} className="lp-dept-card">
+                <Link to="/browse" key={d.code} className="lp-dept-card">
                   <div className="lp-dept-photo" style={{ backgroundImage: `url('${d.image}')` }}></div>
                   <div className="lp-dept-body">
                     <h4>{d.code}</h4>
@@ -274,8 +274,8 @@ export default function LandingPage() {
             <div>
               <h4>Explore</h4>
               <ul>
-                <li><Link to="/login">Browse</Link></li>
-                <li><Link to="/login">Search</Link></li>
+                <li><Link to="/browse">Browse</Link></li>
+                <li><Link to="/search">Search</Link></li>
                 <li><a href="#departments">Departments</a></li>
               </ul>
             </div>

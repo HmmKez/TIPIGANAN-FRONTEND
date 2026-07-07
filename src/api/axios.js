@@ -2,6 +2,12 @@ import axios from 'axios'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
 
+// The backend's origin (baseURL without the trailing /api) — used to build
+// URLs for files served outside the API, like /storage/... cover images.
+// A plain "/storage/..." path resolves against the Vite dev server's own
+// origin (localhost:5173), not the Laravel backend, so images 404.
+export const apiOrigin = baseURL.replace(/\/api\/?$/, '')
+
 const api = axios.create({
   baseURL,
   headers: {

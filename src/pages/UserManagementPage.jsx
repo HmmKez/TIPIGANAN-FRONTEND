@@ -1,8 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { usersApi } from '../api/admin'
+import { usersApi, permissionsApi } from '../api/admin'
+import ConfirmModal from '../components/ConfirmModal'
+import { useToast } from '../components/Toast'
+import { useAuth } from '../contexts/AuthContext'
 
 const emptyCreate = { name: '', email: '', password: '', role: 'staff' }
+
+// Staff get every other privilege (uploading, editing, categorizing, viewing
+// logs, exporting reports, viewing users, resetting passwords) automatically
+// with the Staff role — per the team guide, only account deletion and
+// document deletion require an explicit Super Admin grant. Those are the
+// only permissions worth surfacing here; everything else would always show
+// "granted" and isn't meaningfully revocable per-user since it comes from
+// the role, not a direct grant.
+const MANAGEABLE_PERMISSIONS = ['delete_accounts', 'delete_documents']
+const PERMISSION_LABELS = {
+  delete_accounts: 'Delete User Accounts',
+  delete_documents: 'Delete Collections',
+}
+
+// Staff (even with delete_accounts) can only delete accounts below their own
+// level — never another staff member or a super admin.
+function canDelete(actor, target, hasPermission) {
+  if (!actor || actor.id === target.id) return false
+  if (actor.role === 'super_admin') return true
+  return hasPermission('delete_accounts') && (target.role === 'student' || target.role === 'teacher')
+}
 
 function initials(n) { return (n || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase() }
 
@@ -19,10 +43,10 @@ function roleLabel(role) {
 }
 
 export default function UserManagementPage() {
-  const [me] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('tipiganan_user') || 'null') } catch { return null }
-  })
+  const { notify } = useToast()
+  const { user: me, hasPermission } = useAuth()
   const isSuper = me?.role === 'super_admin'
+  const canResetPasswords = hasPermission('reset_passwords') // true for super_admin too
 
   const [users, setUsers] = useState([])
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
@@ -41,6 +65,50 @@ export default function UserManagementPage() {
 
   const [resetFor, setResetFor] = useState(null)
   const [resetForm, setResetForm] = useState({ password: '', password_confirmation: '' })
+
+  const [allPermissions, setAllPermissions] = useState([])
+  const [permsFor, setPermsFor] = useState(null)
+  const [permBusy, setPermBusy] = useState(false)
+  const [permConfirm, setPermConfirm] = useState(null) // { perm, checked } pending confirmation
+
+  const [deleteFor, setDeleteFor] = useState(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
+  useEffect(() => {
+    if (!isSuper) return
+    permissionsApi.list()
+      .then(r => setAllPermissions((r.data || []).filter(p => MANAGEABLE_PERMISSIONS.includes(p.name))))
+      .catch(() => {})
+  }, [isSuper])
+
+  // Checking/unchecking a permission box only stages the change — the actual
+  // grant/revoke call happens in confirmPermissionToggle after the admin
+  // confirms in the modal below.
+  const requestPermissionToggle = (perm, checked) => setPermConfirm({ perm, checked })
+
+  const confirmPermissionToggle = async () => {
+    if (!permsFor || !permConfirm) return
+    const { perm, checked } = permConfirm
+    setPermBusy(true)
+    try {
+      if (checked) await usersApi.grantPermission(permsFor.id, perm.name)
+      else await usersApi.revokePermission(permsFor.id, perm.name)
+      const updated = {
+        ...permsFor,
+        permissions: checked
+          ? [...(permsFor.permissions || []), perm]
+          : (permsFor.permissions || []).filter(p => p.name !== perm.name),
+      }
+      setPermsFor(updated)
+      setUsers(us => us.map(u => (u.id === updated.id ? updated : u)))
+      notify(`${PERMISSION_LABELS[perm.name] || perm.name} ${checked ? 'granted to' : 'revoked from'} ${permsFor.name}.`, 'success')
+    } catch (e) {
+      notify(e?.response?.data?.message || 'Failed to update permission.', 'error')
+    } finally {
+      setPermBusy(false)
+      setPermConfirm(null)
+    }
+  }
 
   const load = () => {
     setLoading(true); setError(null)
@@ -72,19 +140,40 @@ export default function UserManagementPage() {
   }
   useEffect(load, [tab, q, role, status, page]) // eslint-disable-line
 
-  const activate = async (u) => {
-    try { await usersApi.activate(u.id); load() }
-    catch (e) { alert(e?.response?.data?.message || 'Failed') }
+  // { user, activating: bool } pending confirmation — both activate and
+  // deactivate go through the same confirmation step.
+  const [statusConfirm, setStatusConfirm] = useState(null)
+  const [statusBusy, setStatusBusy] = useState(false)
+
+  const confirmStatusChange = async () => {
+    if (!statusConfirm) return
+    const { user: u, activating } = statusConfirm
+    setStatusBusy(true)
+    try {
+      if (activating) await usersApi.activate(u.id)
+      else await usersApi.deactivate(u.id)
+      load()
+      notify(`${u.name} was ${activating ? 'activated' : 'deactivated'}.`, 'success')
+    } catch (e) {
+      notify(e?.response?.data?.message || 'Failed', 'error')
+    } finally {
+      setStatusBusy(false)
+      setStatusConfirm(null)
+    }
   }
-  const deactivate = async (u) => {
-    if (!confirm(`Deactivate ${u.name}?`)) return
-    try { await usersApi.deactivate(u.id); load() }
-    catch (e) { alert(e?.response?.data?.message || 'Failed') }
-  }
-  const remove = async (u) => {
-    if (!confirm(`Permanently delete ${u.name}? This cannot be undone.`)) return
-    try { await usersApi.remove(u.id); load() }
-    catch (e) { alert(e?.response?.data?.message || 'Failed') }
+  const confirmDelete = async () => {
+    if (!deleteFor) return
+    setDeleteBusy(true)
+    try {
+      await usersApi.remove(deleteFor.id)
+      load()
+      notify(`${deleteFor.name}'s account was deleted.`, 'success')
+    } catch (e) {
+      notify(e?.response?.data?.message || 'Failed to delete account.', 'error')
+    } finally {
+      setDeleteBusy(false)
+      setDeleteFor(null)
+    }
   }
 
   const create = async (e) => {
@@ -92,27 +181,28 @@ export default function UserManagementPage() {
     try {
       await usersApi.create(createForm)
       setShowCreate(false); setCreateForm(emptyCreate); load()
+      notify('User created.', 'success')
     } catch (err) {
       const errs = err?.response?.data?.errors
-      alert(errs ? Object.values(errs).flat().join(' ') :
-                   (err?.response?.data?.message || 'Create failed.'))
+      notify(errs ? Object.values(errs).flat().join(' ') :
+                    (err?.response?.data?.message || 'Create failed.'), 'error')
     } finally { setSaving(false) }
   }
 
   const submitReset = async (e) => {
     e.preventDefault()
     if (resetForm.password !== resetForm.password_confirmation) {
-      alert('Passwords do not match.'); return
+      notify('Passwords do not match.', 'error'); return
     }
     setSaving(true)
     try {
       await usersApi.resetPassword(resetFor.id, resetForm)
       setResetFor(null); setResetForm({ password: '', password_confirmation: '' })
-      alert('Password reset successfully.')
+      notify('Password reset successfully.', 'success')
     } catch (err) {
       const errs = err?.response?.data?.errors
-      alert(errs ? Object.values(errs).flat().join(' ') :
-                   (err?.response?.data?.message || 'Reset failed.'))
+      notify(errs ? Object.values(errs).flat().join(' ') :
+                    (err?.response?.data?.message || 'Reset failed.'), 'error')
     } finally { setSaving(false) }
   }
 
@@ -239,31 +329,39 @@ export default function UserManagementPage() {
                   </td>
                   <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                   <td>
-                    {isSuper && (
-                      <>
-                        <button className="btn-icon" title="Reset Password" onClick={() => setResetFor(u)}>
-                          <i className="fas fa-key"></i>
-                        </button>
-                        {u.status === 'active' ? (
-                          <button className="btn-icon" title="Deactivate" onClick={() => deactivate(u)}
-                                  disabled={me?.id === u.id}
-                                  style={me?.id === u.id ? { opacity: 0.3 } : {}}>
-                            <i className="fas fa-user-slash"></i>
-                          </button>
-                        ) : (
-                          <button className="btn-icon" title="Activate" onClick={() => activate(u)}>
-                            <i className="fas fa-user-check"></i>
-                          </button>
-                        )}
-                        <button className="btn-icon" title="Delete" onClick={() => remove(u)}
-                                disabled={me?.id === u.id}
-                                style={{ color: 'var(--danger)', ...(me?.id === u.id ? { opacity: 0.3 } : {}) }}>
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </>
+                    {isSuper && u.role === 'staff' && (
+                      <button className="btn-icon" title="Manage Permissions" onClick={() => setPermsFor(u)}>
+                        <i className="fas fa-user-shield"></i>
+                      </button>
                     )}
-                    {!isSuper && (
-                      <span className="text-muted" style={{ fontSize: 11 }}>read-only</span>
+                    {canResetPasswords && (
+                      <button className="btn-icon" title="Reset Password" onClick={() => setResetFor(u)}>
+                        <i className="fas fa-key"></i>
+                      </button>
+                    )}
+                    {isSuper && (
+                      u.status === 'active' ? (
+                        <button className="btn-icon" title="Deactivate"
+                                onClick={() => setStatusConfirm({ user: u, activating: false })}
+                                disabled={me?.id === u.id}
+                                style={me?.id === u.id ? { opacity: 0.3 } : {}}>
+                          <i className="fas fa-user-slash"></i>
+                        </button>
+                      ) : (
+                        <button className="btn-icon" title="Activate"
+                                onClick={() => setStatusConfirm({ user: u, activating: true })}>
+                          <i className="fas fa-user-check"></i>
+                        </button>
+                      )
+                    )}
+                    {/* Staff only see this for students/teachers — they can
+                        never delete a peer staff account or a super admin. */}
+                    {canDelete(me, u, hasPermission) && (
+                      <button className="btn-icon" title="Delete Account"
+                              onClick={() => setDeleteFor(u)}
+                              style={{ color: 'var(--danger)' }}>
+                        <i className="fas fa-trash"></i>
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -380,6 +478,81 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
+      {/* Manage Permissions Modal */}
+      {permsFor && (
+        <div className="modal-backdrop" onClick={() => setPermsFor(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><i className="fas fa-user-shield" style={{ color: 'var(--primary-blue)', marginRight: 8 }}></i>Permissions — {permsFor.name}</h3>
+              <button className="btn-icon" onClick={() => setPermsFor(null)}><i className="fas fa-times"></i></button>
+            </div>
+            <div className="modal-body">
+              <p className="text-muted" style={{ marginBottom: 16 }}>
+                Staff already have every collection and account management privilege
+                except deletion. Grant these individually only for trusted staff.
+              </p>
+              {allPermissions.length === 0 && (
+                <p className="text-muted">No permissions found.</p>
+              )}
+              {allPermissions.map(perm => {
+                const checked = (permsFor.permissions || []).some(p => p.name === perm.name)
+                return (
+                  <label key={perm.id}
+                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                    <input type="checkbox" checked={checked} disabled={permBusy}
+                           onChange={e => requestPermissionToggle(perm, e.target.checked)} />
+                    <span>{PERMISSION_LABELS[perm.name] || perm.name.replace(/_/g, ' ')}</span>
+                  </label>
+                )
+              })}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setPermsFor(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        open={!!statusConfirm}
+        icon={statusConfirm?.activating ? 'fa-user-check' : 'fa-user-slash'}
+        confirmStyle={statusConfirm?.activating ? 'primary' : 'warning'}
+        title={statusConfirm?.activating ? 'Activate this account?' : 'Deactivate this account?'}
+        message={statusConfirm && (
+          statusConfirm.activating
+            ? `${statusConfirm.user.name} will regain access and be able to sign in again.`
+            : `${statusConfirm.user.name} will be signed out and unable to sign in until reactivated.`
+        )}
+        confirmLabel={statusBusy ? 'Saving…' : (statusConfirm?.activating ? 'Activate' : 'Deactivate')}
+        onConfirm={confirmStatusChange}
+        onCancel={() => setStatusConfirm(null)}
+      />
+
+      <ConfirmModal
+        open={!!permConfirm}
+        icon="fa-user-shield"
+        confirmStyle={permConfirm?.checked ? 'primary' : 'warning'}
+        title={permConfirm?.checked ? 'Grant this permission?' : 'Revoke this permission?'}
+        message={permConfirm && permsFor && (
+          permConfirm.checked
+            ? `Grant "${PERMISSION_LABELS[permConfirm.perm.name] || permConfirm.perm.name}" to ${permsFor.name}? They will be able to use it immediately.`
+            : `Revoke "${PERMISSION_LABELS[permConfirm.perm.name] || permConfirm.perm.name}" from ${permsFor.name}?`
+        )}
+        confirmLabel={permConfirm?.checked ? 'Grant' : 'Revoke'}
+        onConfirm={confirmPermissionToggle}
+        onCancel={() => setPermConfirm(null)}
+      />
+
+      <ConfirmModal
+        open={!!deleteFor}
+        icon="fa-user-slash"
+        confirmStyle="danger"
+        title="Delete this account?"
+        message={deleteFor && `Permanently delete ${deleteFor.name}'s account? This cannot be undone.`}
+        confirmLabel={deleteBusy ? 'Deleting…' : 'Delete Account'}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteFor(null)}
+      />
     </main>
   )
 }

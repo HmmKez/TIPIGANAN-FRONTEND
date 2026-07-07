@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import api from '../api/axios'
+import api, { apiOrigin } from '../api/axios'
+import { useToast } from '../components/Toast'
 const isAuthenticated = () => !!localStorage.getItem('tipiganan_token')
 
 // Thesis Detail page — the React port of the HTML mockup, wired to the
@@ -21,6 +22,14 @@ export default function ThesisDetail() {
   const [error, setError]       = useState(null)
   const [bookmarking, setBm]    = useState(false)
   const [opening, setOpening]   = useState(false)
+  const [citeMenuOpen, setCiteMenuOpen] = useState(false)
+  const [citeMenuPos, setCiteMenuPos] = useState(null)
+  const citeBtnRef = useRef(null)
+  const { notify } = useToast()
+
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -45,10 +54,18 @@ export default function ThesisDetail() {
       const { data: tok } = await api.post(`/theses/${id}/view-token`)
       nav(`/viewer/${tok.token}?thesis=${id}`)
     } catch (err) {
-      alert(err?.response?.data?.message || 'Could not open the document. Please try again.')
+      notify(err?.response?.data?.message || 'Could not open the document. Please try again.', 'error')
     } finally {
       setOpening(false)
     }
+  }
+
+  const toggleCiteMenu = () => {
+    if (!citeMenuOpen && citeBtnRef.current) {
+      const r = citeBtnRef.current.getBoundingClientRect()
+      setCiteMenuPos({ top: r.bottom + 4, left: r.left })
+    }
+    setCiteMenuOpen(v => !v)
   }
 
   const handleBookmark = async () => {
@@ -69,21 +86,45 @@ export default function ThesisDetail() {
     }
   }
 
-  const handleCite = async () => {
+  const handleCite = async (format) => {
+    setCiteMenuOpen(false)
     try {
-      const { data: cite } = await api.get(`/theses/${id}/citations/generate`, { params: { format: 'APA' } })
-      const text = cite?.citation_text || cite?.text || ''
+      // Backend returns { APA: "...", MLA: "..." } — each reflects the
+      // staff-customized citation_text if one was saved, otherwise the
+      // auto-generated default.
+      const { data: cite } = await api.get(`/theses/${id}/citations/generate`, { params: { format } })
+      const text = cite?.[format] || ''
       if (text) {
         await navigator.clipboard.writeText(text)
-        alert('APA citation copied to clipboard:\n\n' + text)
+        notify(`${format} citation copied to clipboard:\n\n${text}`, 'success')
         if (isAuthenticated()) {
-          api.post(`/theses/${id}/citations/log`, { format_type: 'APA' }).catch(() => {})
+          api.post(`/theses/${id}/citations/log`, { format_type: format }).catch(() => {})
         }
       } else {
-        alert('Citation is not available for this thesis yet.')
+        notify('Citation is not available for this thesis yet.', 'error')
       }
     } catch {
-      alert('Citation service unavailable. Try again in a moment.')
+      notify('Citation service unavailable. Try again in a moment.', 'error')
+    }
+  }
+
+  const openReport = () => {
+    if (!isAuthenticated()) return nav(`/login?next=/theses/${id}`)
+    setReportReason('')
+    setReportOpen(true)
+  }
+
+  const submitReport = async (e) => {
+    e.preventDefault()
+    setReportSubmitting(true)
+    try {
+      await api.post(`/theses/${id}/report`, { reason: reportReason || undefined })
+      setReportOpen(false)
+      notify('Report submitted. Staff will review it.', 'success')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Could not submit the report. Please try again.', 'error')
+    } finally {
+      setReportSubmitting(false)
     }
   }
 
@@ -126,7 +167,7 @@ export default function ThesisDetail() {
             <div>
               <div className="detail-cover">
                 {thesis.cover_image_path ? (
-                  <img src={`/storage/${thesis.cover_image_path}`} alt="" />
+                  <img src={`${apiOrigin}/storage/${thesis.cover_image_path}`} alt="" />
                 ) : (
                   <i className="fas fa-microchip" />
                 )}
@@ -152,7 +193,7 @@ export default function ThesisDetail() {
               <div className="row">
                 <b>Status:</b>
                 <span>
-                  <span className={'badge ' + (thesis.status === 'active' ? 'badge-active' : 'badge-muted')}>
+                  <span className={'badge ' + (thesis.status === 'active' ? 'badge-active' : thesis.status === 'restricted' ? 'badge-restricted' : 'badge-archived')}>
                     {thesis.status}
                   </span>
                 </span>
@@ -174,14 +215,43 @@ export default function ThesisDetail() {
                 <button className="btn btn-primary" onClick={handleReadOnline} disabled={opening}>
                   <i className="fas fa-book-open" /> {opening ? 'Opening…' : 'Read Online'}
                 </button>
-                <button className="btn btn-secondary" onClick={handleBookmark} disabled={bookmarking}>
+                <button className={'btn ' + (bookmarked ? 'btn-bookmarked' : 'btn-secondary')}
+                        onClick={handleBookmark} disabled={bookmarking}>
                   <i className={'fas fa-bookmark ' + (bookmarked ? 'bookmarked' : '')} />
-                  {bookmarked ? ' Bookmarked' : ' Bookmark'}
+                  {bookmarking ? ' …' : (bookmarked ? ' Bookmarked' : ' Bookmark')}
                 </button>
-                <button className="btn btn-secondary" onClick={handleCite}>
-                  <i className="fas fa-share-alt" /> Cite this
-                </button>
-                <button className="btn btn-secondary" onClick={() => alert('Report submitted. Staff will review it.')}>
+                <div style={{ display: 'inline-block' }}>
+                  <button ref={citeBtnRef} className="btn btn-secondary" onClick={toggleCiteMenu}>
+                    <i className="fas fa-share-alt" /> Cite this <i className="fas fa-caret-down" style={{ marginLeft: 4 }} />
+                  </button>
+                  {citeMenuOpen && citeMenuPos && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setCiteMenuOpen(false)}></div>
+                      {/* position:fixed (anchored to the button's own bounding rect, not a
+                          relative-positioned ancestor) so the menu escapes .panel's
+                          overflow:hidden instead of getting clipped at the panel edge. */}
+                      <div style={{
+                        position: 'fixed', top: citeMenuPos.top, left: citeMenuPos.left, minWidth: 170,
+                        background: '#fff', border: '1px solid var(--border-light)', borderRadius: 8,
+                        boxShadow: '0 8px 24px rgba(0,0,0,.14)', zIndex: 61, overflow: 'hidden',
+                      }}>
+                        <button type="button" onClick={() => handleCite('APA')}
+                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                          APA Style
+                        </button>
+                        <button type="button" onClick={() => handleCite('MLA')}
+                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                          MLA Style
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button className="btn btn-secondary" onClick={openReport}>
                   <i className="fas fa-flag" /> Report
                 </button>
               </div>
@@ -217,6 +287,38 @@ export default function ThesisDetail() {
                 )
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div className="modal-backdrop" onClick={() => setReportOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><i className="fas fa-flag" style={{ color: 'var(--warning)', marginRight: 8 }}></i>Report This Item</h3>
+              <button className="btn-icon" onClick={() => setReportOpen(false)}><i className="fas fa-times"></i></button>
+            </div>
+            <form onSubmit={submitReport}>
+              <div className="modal-body">
+                <p className="text-muted" style={{ marginBottom: 16 }}>
+                  Let staff know if something's wrong with this item — incorrect metadata,
+                  a broken file, inappropriate content, or anything else worth a second look.
+                </p>
+                <div className="form-group">
+                  <label className="form-label">Reason (optional)</label>
+                  <textarea className="form-control" rows="3" value={reportReason}
+                            onChange={e => setReportReason(e.target.value)}
+                            placeholder="What's the issue?"></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setReportOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={reportSubmitting}>
+                  <i className={`fas ${reportSubmitting ? 'fa-spinner fa-spin' : 'fa-flag'}`}></i>
+                  {reportSubmitting ? ' Submitting…' : ' Submit Report'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

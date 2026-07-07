@@ -20,29 +20,12 @@ const GRADIENTS = [
   'linear-gradient(135deg,#3498DB,#5DADE2)',
 ]
 
-// TODO(backend): CategoryController::index doesn't return a thesis count per
-// category (no withCount('theses')). Until that's added, per-department
-// counts on this page are hardcoded to match the static mockup numbers.
-// Ask backend to add `theses_count` to GET /categories.
-const DEPT_COUNT_PLACEHOLDER = {
-  'CAST': 412, 'CCJ': 188, 'COE': 236, 'CON': 271,
-  'CABM-B': 203, 'CABM-H': 145, 'GS': 305, 'SPC': 96,
-}
-
 // TODO(backend): there is no reading_history read endpoint in routes/api.php
 // (the table exists in the schema, but nothing exposes it). "Recently Read"
 // count and the per-card "% read" progress are both hardcoded placeholders
 // until that endpoint exists.
 const RECENTLY_READ_PLACEHOLDER = 37
 const READ_PROGRESS_PLACEHOLDER = [68, 32, 15]
-
-// TODO(backend): "GS" and "College" stat cards are aggregate groupings
-// (Graduate Studies vs all undergrad colleges combined) that no endpoint
-// currently computes. Hardcoded to match the mockup until reports/dashboard
-// (currently staff/super_admin only) is opened up or a public summary
-// endpoint is added.
-const GS_COUNT_PLACEHOLDER = 305
-const COLLEGE_COUNT_PLACEHOLDER = 1310
 
 // TODO(backend): "Viewed" and "Searched" activity entries have no data
 // source available to non-staff users (audit-logs is staff/super_admin
@@ -94,6 +77,13 @@ export default function DashboardPage() {
 
   const firstName = user?.name?.split(' ')[0] || 'there'
 
+  // Real counts from GET /categories (theses_count), not hardcoded numbers.
+  const gsCategory = categories.find(c => /graduate/i.test(c.name || ''))
+  const gsCount = gsCategory?.theses_count ?? 0
+  const collegeCount = categories.reduce(
+    (sum, c) => sum + (c.id === gsCategory?.id ? 0 : (c.theses_count || 0)), 0
+  )
+
   // Real activity: recent bookmarks. Padded with placeholder view/search
   // entries (see TODO above) to match the mockup's 4-item feed.
   const activityItems = [
@@ -120,8 +110,8 @@ export default function DashboardPage() {
 
       <div className="simple-stat-grid">
         <div className="simple-stat"><div className="v">{totalItems ?? '—'}</div><div className="l">Total Items</div></div>
-        <div className="simple-stat"><div className="v">{GS_COUNT_PLACEHOLDER}</div><div className="l">GS</div></div>
-        <div className="simple-stat"><div className="v">{COLLEGE_COUNT_PLACEHOLDER}</div><div className="l">College</div></div>
+        <div className="simple-stat"><div className="v">{gsCount}</div><div className="l">GS</div></div>
+        <div className="simple-stat"><div className="v">{collegeCount}</div><div className="l">College</div></div>
         <div className="simple-stat"><div className="v">{categories.length || '—'}</div><div className="l">Departments</div></div>
         <div className="simple-stat"><div className="v">{favorites.length}</div><div className="l">My Bookmarks</div></div>
         <div className="simple-stat"><div className="v">{RECENTLY_READ_PLACEHOLDER}</div><div className="l">Recently Read</div></div>
@@ -213,18 +203,14 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="panel-body">
+          {categories.length === 0 && !loading && (
+            <div className="text-muted" style={{ padding: 20 }}>No departments yet.</div>
+          )}
           <div className="page-nav-grid">
-            {categories.length > 0 ? categories.map(c => {
-              const code = c.code || c.name
-              return (
-                <Link key={c.id} to={`/browse?category=${c.id}`}>
-                  <i className={`fas ${DEPT_ICONS[code] || 'fa-folder'}`}></i>
-                  {code} ({c.theses_count ?? DEPT_COUNT_PLACEHOLDER[code] ?? '—'})
-                </Link>
-              )
-            }) : ['CAST', 'CCJ', 'COE', 'CON', 'CABM-B', 'CABM-H', 'GS', 'SPC'].map(code => (
-              <Link key={code} to="/browse">
-                <i className={`fas ${DEPT_ICONS[code] || 'fa-folder'}`}></i> {code} ({DEPT_COUNT_PLACEHOLDER[code] ?? '—'})
+            {categories.map(c => (
+              <Link key={c.id} to={`/browse?category_id=${c.id}`}>
+                <i className={`fas ${DEPT_ICONS[c.name] || 'fa-folder'}`}></i>
+                {c.name} ({c.theses_count ?? 0})
               </Link>
             ))}
           </div>

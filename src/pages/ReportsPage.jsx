@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { reportsApi } from '../api/admin'
+import { useToast } from '../components/Toast'
+
+const REPORT_TYPES = [
+  { value: 'dashboard',      label: 'Dashboard Summary' },
+  { value: 'most-cited',     label: 'Most Cited Theses' },
+  { value: 'by-department',  label: 'Collections by Department' },
+  { value: 'by-year',        label: 'Collections by Year' },
+  { value: 'most-searched',  label: 'Most Searched Keywords' },
+  { value: 'most-active',    label: 'Most Active Users' },
+  { value: 'peak-hours',     label: 'Peak Usage Hours' },
+]
 
 export default function ReportsPage() {
+  const { notify } = useToast()
   const [dashboard, setDashboard] = useState(null)
   const [byDept, setByDept] = useState([])
   const [byYear, setByYear] = useState([])
@@ -12,6 +24,8 @@ export default function ReportsPage() {
   const [mostCited, setMostCited] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [exportingType, setExportingType] = useState(null)
 
   useEffect(() => {
     setLoading(true); setError(null)
@@ -40,7 +54,27 @@ export default function ReportsPage() {
   const maxDept = Math.max(1, ...byDept.map(x => Number(x.total) || 0))
   const maxYear = Math.max(1, ...byYear.map(x => Number(x.total) || 0))
   const maxHour = Math.max(1, ...peakHours.map(x => Number(x.total) || 0))
-  const totalActivity = mostActive.reduce((s, u) => s + Number(u.activity_count || 0), 0)
+  const totalActiveHours = mostActive.reduce((s, u) => s + Number(u.active_hours || 0), 0)
+
+  const downloadReport = async (reportType, label) => {
+    setExportMenuOpen(false)
+    setExportingType(reportType)
+    try {
+      const res = await reportsApi.exportPdf({ report: reportType })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${reportType}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      notify(`${label} PDF downloaded.`, 'success')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Export failed — requires the export_reports permission.', 'error')
+    } finally {
+      setExportingType(null)
+    }
+  }
 
   return (
     <main className="content">
@@ -52,9 +86,36 @@ export default function ReportsPage() {
           <div className="page-title">Reports &amp; Analytics</div>
           <div className="page-subtitle">Generate insights from the special collections repository.</div>
         </div>
-        <button className="btn btn-primary" onClick={() => window.print()}>
-          <i className="fas fa-file-pdf"></i> Print / Save as PDF
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <button className="btn btn-primary" onClick={() => setExportMenuOpen(v => !v)} disabled={!!exportingType}>
+              <i className={`fas ${exportingType ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
+              {exportingType ? ' Exporting…' : ' Save as PDF'} <i className="fas fa-caret-down" style={{ marginLeft: 4 }}></i>
+            </button>
+            {exportMenuOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setExportMenuOpen(false)}></div>
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 4, minWidth: 220,
+                  background: '#fff', border: '1px solid var(--border-light)', borderRadius: 8,
+                  boxShadow: '0 8px 24px rgba(0,0,0,.14)', zIndex: 61, overflow: 'hidden',
+                }}>
+                  {REPORT_TYPES.map(rt => (
+                    <button key={rt.value} type="button" onClick={() => downloadReport(rt.value, rt.label)}
+                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      {rt.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <button className="btn btn-secondary" onClick={() => window.print()}>
+            <i className="fas fa-print"></i> Print
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -81,9 +142,9 @@ export default function ReportsPage() {
           <div className="stat-label">Citations Logged</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon orange"><i className="fas fa-tachometer-alt"></i></div>
-          <div className="stat-value">{loading ? '…' : totalActivity.toLocaleString()}</div>
-          <div className="stat-label">Top 10 User Actions</div>
+          <div className="stat-card-icon orange"><i className="fas fa-clock"></i></div>
+          <div className="stat-value">{loading ? '…' : totalActiveHours.toLocaleString()}</div>
+          <div className="stat-label">Top 10 Hours Active</div>
         </div>
       </div>
 
@@ -208,7 +269,7 @@ export default function ReportsPage() {
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>User</th><th>Role</th><th>Actions</th></tr>
+                <tr><th>#</th><th>User</th><th>Role</th><th>Hours Active</th></tr>
               </thead>
               <tbody>
                 {mostActive.map((row, i) => (
@@ -222,7 +283,7 @@ export default function ReportsPage() {
                     <td>
                       <span className="badge badge-info">{row.user?.role || '—'}</span>
                     </td>
-                    <td><b>{row.activity_count}</b></td>
+                    <td><b>{row.active_hours}</b></td>
                   </tr>
                 ))}
                 {!loading && mostActive.length === 0 && (

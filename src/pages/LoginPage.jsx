@@ -32,6 +32,9 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <div className="auth-left">
+        <Link to="/" style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'inherit', opacity:0.85, textDecoration:'none', marginBottom:24}}>
+          <i className="fas fa-arrow-left"></i> Back to Home
+        </Link>
         <div className="auth-logo">
           <img src="https://sis.materdeicollege.com/img/MDC-Logo-clipped.png" alt="MDC Logo" id="login-logo" />
         </div>

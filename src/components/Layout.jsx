@@ -1,7 +1,31 @@
+import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { usersApi } from '../api'
+import ConfirmModal from './ConfirmModal'
 
-function getMenu(isAdmin) {
+function timeAgo(dateStr) {
+  const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000)
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(dateStr).toLocaleDateString()
+}
+
+function getMenu(isAdmin, isGuest) {
+  if (isGuest) {
+    return [
+      { section: 'REPOSITORY', items: [
+        { to: '/browse', icon: 'fa-folder-open', label: 'Browse' },
+        { to: '/search',  icon: 'fa-search',      label: 'Search' },
+      ] },
+    ]
+  }
+
   const menu = [
     { section: 'MAIN', items: [
       { to: isAdmin ? '/admin' : '/dashboard', icon: 'fa-th-large', label: 'Dashboard', exact: true },
@@ -18,14 +42,18 @@ function getMenu(isAdmin) {
 
   if (isAdmin) {
     menu.push({ section: 'ADMINISTRATION', items: [
-      { to: '/admin/users',      icon: 'fa-users-cog',      label: 'User Management' },
-      { to: '/admin/audit-logs', icon: 'fa-clipboard-list', label: 'Audit Logs' },
-      { to: '/admin/reports',    icon: 'fa-chart-bar',      label: 'Reports & Analytics' },
+      { to: '/admin/users',           icon: 'fa-users-cog',      label: 'User Management' },
+      { to: '/admin/reported-items',  icon: 'fa-flag',           label: 'Reported Items' },
+      { to: '/admin/audit-logs',      icon: 'fa-clipboard-list', label: 'Audit Logs' },
+      { to: '/admin/reports',         icon: 'fa-chart-bar',      label: 'Reports & Analytics' },
     ] })
   }
 
+  // Favorites is available to every signed-in role — the blueprint has
+  // Admin/Staff explicitly inheriting all Student/Teacher privileges,
+  // bookmarking included.
   menu.push({ section: 'ACCOUNT', items: [
-    ...(!isAdmin ? [{ to: '/bookmarks', icon: 'fa-bookmark', label: 'Favorites' }] : []),
+    { to: '/bookmarks', icon: 'fa-bookmark', label: 'Favorites' },
     { to: '/profile', icon: 'fa-user-circle', label: 'My Profile' },
   ] })
 
@@ -40,22 +68,57 @@ function initials(name) {
 export default function Layout({ children }) {
   const navigate = useNavigate()
   const { user, isAdmin, logout } = useAuth()
+  const isGuest = !user
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [activity, setActivity] = useState(null) // null = not fetched yet
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
 
   const roleLabel = user?.role === 'super_admin' ? 'Super Administrator'
                    : user?.role === 'staff'       ? 'Staff'
                    : user?.role === 'teacher'      ? 'Teacher'
                    : 'Student'
 
-  const menu = getMenu(isAdmin)
+  const menu = getMenu(isAdmin, isGuest)
 
   const handleLogout = async () => {
+    setLogoutConfirmOpen(false)
     await logout()
     navigate('/login')
   }
 
+  // Loads real recent activity (own bookmarks + reading history, same data
+  // as the Profile page's Activity tab) the first time the bell is opened,
+  // rather than fetching it on every page load.
+  const toggleNotif = () => {
+    const opening = !notifOpen
+    setNotifOpen(opening)
+    if (opening && activity === null) {
+      setActivityLoading(true)
+      usersApi.profile()
+        .then(res => {
+          const { favorites = [], history = [] } = res.data
+          const items = [
+            ...favorites.slice(0, 3).map(f => ({
+              icon: 'fa-bookmark', color: 'green',
+              title: `Bookmarked "${f.thesis?.title}"`, time: f.created_at,
+            })),
+            ...history.slice(0, 3).map(h => ({
+              icon: 'fa-eye', color: '',
+              title: `Viewed "${h.thesis?.title}"`, time: h.viewed_at,
+            })),
+          ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 5)
+          setActivity(items)
+        })
+        .catch(() => setActivity([]))
+        .finally(() => setActivityLoading(false))
+    }
+  }
+
   return (
     <div className="app-container">
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sidebar-brand">
           <img src="https://sis.materdeicollege.com/img/MDC-Logo-clipped.png" alt="MDC" className="sidebar-mdc-logo" />
           <div className="brand-text">
@@ -83,28 +146,86 @@ export default function Layout({ children }) {
         <div className="sidebar-footer">© 2026 Mater Dei College<br />TIPIGANAN v1.0.0</div>
       </aside>
 
-      <div className="main-wrap">
+      <div className={`main-wrap${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
         <header className="topbar">
           <div className="topbar-left">
-            <i className="fas fa-bars" style={{ cursor: 'pointer', color: 'var(--text-muted)' }}></i>
+            <i className="fas fa-bars" title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+               style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
+               onClick={() => setSidebarCollapsed(v => !v)}></i>
             <span><b style={{ color: 'var(--text-primary)' }}>Active Term:</b></span>
             <span className="term-badge">1st Semester AY 2026-2027</span>
           </div>
           <div className="topbar-right">
-            <button className="topbar-icon" title="Notifications">
-              <i className="fas fa-bell"></i>
-              <span className="notif-dot"></span>
-            </button>
-            <Link to="/profile" className="user-chip">
-              <div className="user-avatar">{initials(user?.name)}</div>
-              <div>
-                <div className="user-name">{user?.name || 'User'}</div>
-                <div className="user-role">{roleLabel}</div>
-              </div>
-            </Link>
-            <button className="topbar-icon" title="Logout" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt"></i>
-            </button>
+            {isGuest ? (
+              <>
+                <Link to="/login" className="btn btn-secondary btn-sm">
+                  <i className="fas fa-sign-in-alt"></i> Sign In
+                </Link>
+                <Link to="/register" className="btn btn-primary btn-sm">
+                  <i className="fas fa-user-plus"></i> Register
+                </Link>
+              </>
+            ) : (
+              <>
+                <div style={{ position: 'relative' }}>
+                  <button className="topbar-icon" title="Recent Activity" onClick={toggleNotif}>
+                    <i className="fas fa-history"></i>
+                  </button>
+                  {notifOpen && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setNotifOpen(false)}></div>
+                      <div style={{
+                        position: 'absolute', right: 0, top: 44, width: 300, background: '#fff',
+                        border: '1px solid var(--border-light)', borderRadius: 10,
+                        boxShadow: 'var(--shadow-md, 0 8px 24px rgba(0,0,0,.12))', zIndex: 61, padding: '10px 0',
+                      }}>
+                        <div style={{ padding: '4px 16px 10px', fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>Recent Activity</span>
+                          <Link to="/profile" style={{ fontSize: 11, color: 'var(--primary-blue)', fontWeight: 500 }} onClick={() => setNotifOpen(false)}>
+                            View all
+                          </Link>
+                        </div>
+                        {activityLoading ? (
+                          <div style={{ padding: '18px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
+                            <i className="fas fa-spinner fa-spin"></i>
+                          </div>
+                        ) : !activity || activity.length === 0 ? (
+                          <div style={{ padding: '18px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
+                            <i className="fas fa-inbox" style={{ display: 'block', fontSize: 20, marginBottom: 8 }}></i>
+                            No recent activity yet
+                          </div>
+                        ) : (
+                          <ul style={{ listStyle: 'none', margin: 0, padding: '4px 0', maxHeight: 280, overflowY: 'auto' }}>
+                            {activity.map((a, i) => (
+                              <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 16px' }}>
+                                <div className={`activity-icon ${a.color}`} style={{ flexShrink: 0 }}>
+                                  <i className={`fas ${a.icon}`}></i>
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.4 }}
+                                       dangerouslySetInnerHTML={{ __html: a.title.replace(/"([^"]+)"/, '"<b>$1</b>"') }} />
+                                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{timeAgo(a.time)}</div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <Link to="/profile" className="user-chip">
+                  <div className="user-avatar">{initials(user?.name)}</div>
+                  <div>
+                    <div className="user-name">{user?.name || 'User'}</div>
+                    <div className="user-role">{roleLabel}</div>
+                  </div>
+                </Link>
+                <button className="topbar-icon" title="Logout" onClick={() => setLogoutConfirmOpen(true)}>
+                  <i className="fas fa-sign-out-alt"></i>
+                </button>
+              </>
+            )}
           </div>
         </header>
 
@@ -112,6 +233,17 @@ export default function Layout({ children }) {
 
         <footer className="footer">© 2026 Mater Dei College — TIPIGANAN</footer>
       </div>
+
+      <ConfirmModal
+        open={logoutConfirmOpen}
+        icon="fa-sign-out-alt"
+        confirmStyle="primary"
+        title="Log out?"
+        message="You'll need to sign in again to access your account."
+        confirmLabel="Log Out"
+        onConfirm={handleLogout}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
     </div>
   )
 }

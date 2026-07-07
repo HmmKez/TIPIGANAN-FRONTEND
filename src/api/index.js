@@ -57,4 +57,6 @@ export const citationsApi = {
   list: (thesisId) => api.get(`/theses/${thesisId}/citations`),
   generate: (thesisId, params) => api.get(`/theses/${thesisId}/citations/generate`, { params }),
   logCopy: (thesisId, data) => api.post(`/theses/${thesisId}/citations/log`, data),
+  // Staff + Super Admin only — editing the auto-generated APA/MLA text
+  update: (thesisId, citationId, data) => api.put(`/theses/${thesisId}/citations/${citationId}`, data),
 }

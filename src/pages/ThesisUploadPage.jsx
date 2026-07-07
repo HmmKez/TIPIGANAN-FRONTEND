@@ -1,10 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { thesesApi, categoriesApi } from '../api/admin'
+import { citationsApi } from '../api'
 
 const emptyForm = {
   title: '', authors: '', adviser: '', year_published: '',
   category_id: '', pages: '', abstract: '', keywords: '',
+}
+
+const SCHOOL = 'Mater Dei College'
+
+// Mirrors CitationController::generate()'s default formula exactly, so the
+// live preview matches what actually gets saved.
+function defaultApa({ authors, year_published, title }) {
+  if (!authors || !year_published || !title) return ''
+  return `${authors} (${year_published}). ${title} [Unpublished thesis]. ${SCHOOL}.`
+}
+function defaultMla({ authors, year_published, title }) {
+  if (!authors || !year_published || !title) return ''
+  return `${authors}. "${title}." Unpublished thesis, ${SCHOOL}, ${year_published}.`
 }
 
 export default function ThesisUploadPage() {
@@ -17,9 +31,19 @@ export default function ThesisUploadPage() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
 
+  // Live citation preview — recomputed from the form as you type, unless
+  // you've edited the text directly, in which case your edit wins.
+  const [apaText, setApaText] = useState('')
+  const [mlaText, setMlaText] = useState('')
+  const [apaEdited, setApaEdited] = useState(false)
+  const [mlaEdited, setMlaEdited] = useState(false)
+
   useEffect(() => {
     categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
   }, [])
+
+  useEffect(() => { if (!apaEdited) setApaText(defaultApa(form)) }, [form.authors, form.year_published, form.title, apaEdited])
+  useEffect(() => { if (!mlaEdited) setMlaText(defaultMla(form)) }, [form.authors, form.year_published, form.title, mlaEdited])
 
   const update = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -33,8 +57,26 @@ export default function ThesisUploadPage() {
       data.append('pdf_file', pdfFile)
       if (coverFile) data.append('cover_image', coverFile)
       const res = await thesesApi.create(data)
+      const newId = res.data?.id
+
+      // Persist the citation preview: generate() creates the default APA/MLA
+      // rows, then any text the staff member edited away from the computed
+      // default gets saved over it — so the edit made here doesn't need a
+      // separate trip through the Edit page to take effect.
+      if (newId && (apaEdited || mlaEdited)) {
+        try {
+          await citationsApi.generate(newId)
+          const list = (await citationsApi.list(newId)).data || []
+          const apaRow = list.find(c => c.format_type === 'APA')
+          const mlaRow = list.find(c => c.format_type === 'MLA')
+          if (apaEdited && apaRow) await citationsApi.update(newId, apaRow.id, { citation_text: apaText })
+          if (mlaEdited && mlaRow) await citationsApi.update(newId, mlaRow.id, { citation_text: mlaText })
+        } catch { /* thesis is already created; citation text can still be fixed on the Edit page */ }
+      }
+
       setSuccess(true)
-      setTimeout(() => navigate(res.data?.id ? `/theses/${res.data.id}` : '/admin/collections'), 900)
+      // Land on the edit page so staff can review/keep customizing citations.
+      setTimeout(() => navigate(newId ? `/admin/theses/${newId}/edit` : '/admin/collections'), 900)
     } catch (err) {
       const errs = err?.response?.data?.errors
       setError({ message: errs ? Object.values(errs).flat().join(' ') :
@@ -115,7 +157,9 @@ export default function ThesisUploadPage() {
                     <select className="form-control" required
                             value={form.category_id} onChange={e => update('category_id', e.target.value)}>
                       <option value="">— Select Category —</option>
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="form-group">
@@ -137,6 +181,28 @@ export default function ThesisUploadPage() {
                          value={form.keywords} onChange={e => update('keywords', e.target.value)}
                          placeholder="e.g. IoT, Smart Classroom, ESP32" />
                   <small className="text-muted" style={{ fontSize: 11 }}>Separate with commas</small>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel" style={{ marginTop: 16 }}>
+              <div className="panel-header"><div className="panel-title">Citation Preview</div></div>
+              <div className="panel-body">
+                <p className="text-muted" style={{ fontSize: 11.5, marginBottom: 14 }}>
+                  Auto-generated from the fields above as you type. Edit either one directly if it needs adjusting —
+                  your wording is saved when you upload, no separate step needed.
+                </p>
+                <div className="form-group">
+                  <label className="form-label"><span className="badge badge-info">APA</span></label>
+                  <textarea className="form-control" rows="3" value={apaText}
+                            placeholder="Fill in Title, Author(s), and Year to preview"
+                            onChange={e => { setApaText(e.target.value); setApaEdited(true) }}></textarea>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label"><span className="badge badge-info">MLA</span></label>
+                  <textarea className="form-control" rows="3" value={mlaText}
+                            placeholder="Fill in Title, Author(s), and Year to preview"
+                            onChange={e => { setMlaText(e.target.value); setMlaEdited(true) }}></textarea>
                 </div>
               </div>
             </div>

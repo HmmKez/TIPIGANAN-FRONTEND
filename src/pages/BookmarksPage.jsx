@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { Loader, EmptyState, ErrorMessage } from '../components/Loader'
 import { favoritesApi } from '../api'
+import { apiOrigin } from '../api/axios'
 
 const DEPT_ICONS = {
   'CAST': 'fa-flask', 'CCJ': 'fa-balance-scale', 'COE': 'fa-microchip',
@@ -257,12 +258,18 @@ export default function BookmarksPage() {
             const t = f.thesis || {}
             const code = t.category?.name || 'Uncategorized'
             const progress = placeholderProgress(f.id)
+            const coverImage = t.cover_image_path || t.category?.cover_image_path
             return (
               <div key={f.id} className="thesis-card">
                 <div className="thesis-cover" style={{ background: GRADIENTS[i % GRADIENTS.length] }}>
+                  {coverImage ? (
+                    <img src={`${apiOrigin}/storage/${coverImage}`} alt=""
+                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <i className={`fas ${DEPT_ICONS[code] || 'fa-file-alt'}`}></i>
+                  )}
                   <span className="dept-tag">{code}</span>
                   <span className="year-tag">{t.year_published || '—'}</span>
-                  <i className={`fas ${DEPT_ICONS[code] || 'fa-file-alt'}`}></i>
                 </div>
                 <div className="thesis-info">
                   <div className="thesis-title">{t.title}</div>

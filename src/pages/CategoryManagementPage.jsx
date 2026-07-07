@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { categoriesApi } from '../api/admin'
+import { apiOrigin } from '../api/axios'
+import { useToast } from '../components/Toast'
+import ConfirmModal from '../components/ConfirmModal'
 
-const emptyForm = { name: '', parent_id: '' }
+const emptyForm = { name: '' }
 
 export default function CategoryManagementPage() {
+  const { notify } = useToast()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [q, setQ] = useState('')
   const [modal, setModal] = useState(null) // null | { mode: 'create'|'edit', data }
   const [form, setForm] = useState(emptyForm)
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [deleteFor, setDeleteFor] = useState(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   const load = () => {
     setLoading(true); setError(null)
@@ -22,41 +30,60 @@ export default function CategoryManagementPage() {
   }
   useEffect(load, [])
 
-  // Flatten so children show inline with parent info
-  const flat = items.flatMap(c => [
-    { ...c, level: 0 },
-    ...(c.children || []).map(ch => ({ ...ch, level: 1, parent_name: c.name })),
-  ])
-  const filtered = q ? flat.filter(c => (c.name || '').toLowerCase().includes(q.toLowerCase())) : flat
+  const filtered = q ? items.filter(c => (c.name || '').toLowerCase().includes(q.toLowerCase())) : items
 
   const open = (mode, data = null) => {
     setModal({ mode, data })
-    setForm(data ? { name: data.name, parent_id: data.parent_id || '' } : emptyForm)
+    setForm(data ? { name: data.name } : emptyForm)
+    setCoverFile(null)
+    setCoverPreview(data?.cover_image_path ? `${apiOrigin}/storage/${data.cover_image_path}` : null)
   }
-  const close = () => { setModal(null); setForm(emptyForm) }
+  const close = () => { setModal(null); setForm(emptyForm); setCoverFile(null); setCoverPreview(null) }
+
+  const pickCoverFile = (file) => {
+    setCoverFile(file)
+    setCoverPreview(file ? URL.createObjectURL(file) : null)
+  }
 
   const save = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = { name: form.name, parent_id: form.parent_id || null }
-      if (modal.mode === 'create') await categoriesApi.create(payload)
-      else await categoriesApi.update(modal.data.id, payload)
+      const payload = { name: form.name }
+      let category
+      if (modal.mode === 'create') {
+        category = (await categoriesApi.create(payload)).data
+      } else {
+        category = (await categoriesApi.update(modal.data.id, payload)).data
+      }
+      if (coverFile) {
+        await categoriesApi.uploadCoverImage(category.id, coverFile)
+      }
       close(); load()
+      notify(modal.mode === 'create' ? 'Category created.' : 'Category updated.', 'success')
     } catch (err) {
       const errs = err?.response?.data?.errors
-      alert(errs ? Object.values(errs).flat().join(' ') :
-                   (err?.response?.data?.message || 'Save failed.'))
+      notify(errs ? Object.values(errs).flat().join(' ') :
+                    (err?.response?.data?.message || 'Save failed.'), 'error')
     } finally { setSaving(false) }
   }
 
-  const remove = async (c) => {
-    if (!confirm(`Delete category "${c.name}"? This cannot be undone.`)) return
-    try { await categoriesApi.remove(c.id); load() }
-    catch (err) { alert(err?.response?.data?.message || 'Delete failed. Categories with items cannot be deleted.') }
+  const confirmDelete = async () => {
+    if (!deleteFor) return
+    setDeleteBusy(true)
+    try {
+      await categoriesApi.remove(deleteFor.id)
+      load()
+      notify(`Category "${deleteFor.name}" deleted.`, 'success')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Delete failed. Categories with items cannot be deleted.', 'error')
+    } finally {
+      setDeleteBusy(false)
+      setDeleteFor(null)
+    }
   }
 
-  const totalItems = flat.reduce((s, c) => s + (c.theses_count || 0), 0)
+  const totalItems = items.reduce((s, c) => s + (c.theses_count || 0), 0)
 
   return (
     <main className="content">
@@ -76,23 +103,13 @@ export default function CategoryManagementPage() {
       <div className="stat-grid">
         <div className="stat-card">
           <div className="stat-card-icon blue"><i className="fas fa-sitemap"></i></div>
-          <div className="stat-value">{flat.length}</div>
+          <div className="stat-value">{items.length}</div>
           <div className="stat-label">Total Categories</div>
         </div>
         <div className="stat-card">
           <div className="stat-card-icon green"><i className="fas fa-file-alt"></i></div>
           <div className="stat-value">{totalItems.toLocaleString()}</div>
           <div className="stat-label">Total Items</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon purple"><i className="fas fa-layer-group"></i></div>
-          <div className="stat-value">{items.length}</div>
-          <div className="stat-label">Top-Level Categories</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon orange"><i className="fas fa-project-diagram"></i></div>
-          <div className="stat-value">{flat.filter(c => c.level > 0).length}</div>
-          <div className="stat-label">Sub-Categories</div>
         </div>
       </div>
 
@@ -114,8 +131,8 @@ export default function CategoryManagementPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th>Cover</th>
                 <th>Name</th>
-                <th>Parent</th>
                 <th>Total Items</th>
                 <th>Created</th>
                 <th>Actions</th>
@@ -129,19 +146,23 @@ export default function CategoryManagementPage() {
               {filtered.map(c => (
                 <tr key={c.id}>
                   <td>
-                    <b style={{ paddingLeft: c.level * 16 }}>
-                      {c.level > 0 && <i className="fas fa-level-up-alt fa-rotate-90" style={{ marginRight: 6, color: 'var(--text-muted)' }}></i>}
-                      {c.name}
-                    </b>
+                    {c.cover_image_path ? (
+                      <img src={`${apiOrigin}/storage/${c.cover_image_path}`} alt=""
+                           style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <i className="fas fa-image"></i>
+                      </div>
+                    )}
                   </td>
-                  <td className="text-muted">{c.parent_name || '—'}</td>
+                  <td><b>{c.name}</b></td>
                   <td>{c.theses_count ?? '—'}</td>
                   <td>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
                   <td>
                     <button className="btn-icon" title="Edit" onClick={() => open('edit', c)}>
                       <i className="fas fa-edit"></i>
                     </button>
-                    <button className="btn-icon" title="Delete" style={{ color: 'var(--danger)' }} onClick={() => remove(c)}>
+                    <button className="btn-icon" title="Delete" style={{ color: 'var(--danger)' }} onClick={() => setDeleteFor(c)}>
                       <i className="fas fa-trash"></i>
                     </button>
                   </td>
@@ -172,14 +193,23 @@ export default function CategoryManagementPage() {
                          placeholder="e.g. College of Engineering" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Parent Category</label>
-                  <select className="form-control" value={form.parent_id}
-                          onChange={e => setForm({ ...form, parent_id: e.target.value })}>
-                    <option value="">— None (top level) —</option>
-                    {items.filter(c => !modal.data || c.id !== modal.data.id).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <label className="form-label">Cover Image</label>
+                  <p className="text-muted" style={{ fontSize: 11.5, marginBottom: 8 }}>
+                    Shown on the browse and landing pages for this department.
+                  </p>
+                  <label className="file-drop" style={{ display: 'block', padding: coverPreview ? 0 : 20, overflow: 'hidden' }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                           onChange={e => pickCoverFile(e.target.files?.[0] || null)} />
+                    {coverPreview ? (
+                      <img src={coverPreview} alt="" style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <>
+                        <i className="fas fa-image"></i>
+                        <p>Click to upload a cover image</p>
+                        <p className="file-hint">JPG/PNG · Max 2 MB</p>
+                      </>
+                    )}
+                  </label>
                 </div>
               </div>
               <div className="modal-footer">
@@ -193,6 +223,17 @@ export default function CategoryManagementPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!deleteFor}
+        icon="fa-trash-alt"
+        confirmStyle="danger"
+        title="Delete this category?"
+        message={deleteFor && `Delete category "${deleteFor.name}"? This cannot be undone. Categories with items cannot be deleted.`}
+        confirmLabel={deleteBusy ? 'Deleting…' : 'Delete Category'}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteFor(null)}
+      />
     </main>
   )
 }
