@@ -7,3 +7,21 @@ export const authApi = {
   me: () => api.get('/auth/me'),
   changePassword: (data) => api.post('/auth/change-password', data),
 }
+
+export function currentUser() {
+  try {
+    const raw = localStorage.getItem('tipiganan_user')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export async function logout() {
+  try {
+    await api.post('/auth/logout')
+  } finally {
+    localStorage.removeItem('tipiganan_token')
+    localStorage.removeItem('tipiganan_user')
+  }
+}

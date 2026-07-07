@@ -1,12 +1,22 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
+import RequireAdmin from './components/RequireAdmin'
+import PdfViewer from './pages/PdfViewer'
 
+import AdminDashboardPage       from './pages/AdminDashboardPage'
+import CollectionManagementPage from './pages/CollectionManagementPage'
+import ThesisUploadPage         from './pages/ThesisUploadPage'
+import CategoryManagementPage   from './pages/CategoryManagementPage'
+import UserManagementPage       from './pages/UserManagementPage'
+import AuditLogsPage            from './pages/AuditLogsPage'
+import ReportsPage              from './pages/ReportsPage'
+
+import ThesisDetail from './pages/ThesisDetail'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import LandingPage from './pages/LandingPage'
-import SearchPage from './pages/SearchPage'
 import BrowsePage from './pages/BrowsePage'
 import DashboardPage from './pages/DashboardPage'
 import BookmarksPage from './pages/BookmarksPage'
@@ -18,6 +28,14 @@ function InLayout({ children, adminOnly = false }) {
     <ProtectedRoute adminOnly={adminOnly}>
       <Layout>{children}</Layout>
     </ProtectedRoute>
+  )
+}
+
+function Admin({ children }) {
+  return (
+    <RequireAdmin>
+      <Layout>{children}</Layout>
+    </RequireAdmin>
   )
 }
 
@@ -51,7 +69,7 @@ function PlaceholderPage({ title, subtitle = 'This page is ready to be connected
 
 export default function App() {
   return (
-     <Routes>
+    <Routes>
       {/* Public */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/home" element={<HomeRedirect />} />
@@ -60,26 +78,25 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
 
       {/* Student area */}
-      <Route path="/dashboard" element={<InLayout><DashboardPage /></InLayout>} />
-      <Route path="/browse" element={<InLayout><BrowsePage /></InLayout>} />
-      <Route path="/search" element={<InLayout><PlaceholderPage title="Search" /></InLayout>} />
-      <Route path="/theses/:id" element={<InLayout><PlaceholderPage title="Thesis Details" /></InLayout>} />
-      <Route path="/theses/:id/view" element={<ProtectedRoute><PlaceholderPage title="PDF Viewer" /></ProtectedRoute>} />
+      <Route path="/theses/:id" element={<InLayout><ThesisDetail /></InLayout>} />
+      <Route path="/dashboard"  element={<InLayout><DashboardPage /></InLayout>} />
+      <Route path="/browse"     element={<InLayout><BrowsePage /></InLayout>} />
+      <Route path="/search"     element={<InLayout><PlaceholderPage title="Search" /></InLayout>} />
+
+      <Route path="/viewer/:token" element={<ProtectedRoute><PdfViewer /></ProtectedRoute>} />
       <Route path="/bookmarks" element={<InLayout><BookmarksPage /></InLayout>} />
-      <Route path="/history" element={<InLayout><ReadingHistoryPage /></InLayout>} />
-      <Route path="/profile" element={<InLayout><ProfilePage /></InLayout>} />
+      <Route path="/favorites" element={<InLayout><BookmarksPage /></InLayout>} />
+      <Route path="/history"   element={<InLayout><ReadingHistoryPage /></InLayout>} />
+      <Route path="/profile"   element={<InLayout><ProfilePage /></InLayout>} />
 
       {/* Admin area */}
-      <Route path="/admin" element={<InLayout adminOnly><PlaceholderPage title="Admin Dashboard" /></InLayout>} />
-      <Route path="/admin/theses" element={<InLayout adminOnly><PlaceholderPage title="Collection Management" /></InLayout>} />
-      <Route path="/admin/upload" element={<InLayout adminOnly><PlaceholderPage title="Upload Item" /></InLayout>} />
-      <Route path="/admin/categories" element={<InLayout adminOnly><PlaceholderPage title="Category Management" /></InLayout>} />
-      <Route path="/admin/users" element={<InLayout adminOnly><PlaceholderPage title="User Management" /></InLayout>} />
-      <Route path="/admin/audit-logs" element={<InLayout adminOnly><PlaceholderPage title="Audit Logs" /></InLayout>} />
-      <Route path="/admin/reports" element={<InLayout adminOnly><PlaceholderPage title="Reports & Analytics" /></InLayout>} />
-
-      <Route path="*" element={<Navigate to="/" replace />} />
-
+      <Route path="/admin"             element={<Admin><AdminDashboardPage /></Admin>} />
+      <Route path="/admin/collections" element={<Admin><CollectionManagementPage /></Admin>} />
+      <Route path="/admin/upload"      element={<Admin><ThesisUploadPage /></Admin>} />
+      <Route path="/admin/categories"  element={<Admin><CategoryManagementPage /></Admin>} />
+      <Route path="/admin/users"       element={<Admin><UserManagementPage /></Admin>} />
+      <Route path="/admin/audit-logs"  element={<Admin><AuditLogsPage /></Admin>} />
+      <Route path="/admin/reports"     element={<Admin><ReportsPage /></Admin>} />
     </Routes>
   )
 }
