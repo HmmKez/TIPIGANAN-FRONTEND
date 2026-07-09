@@ -1,30 +1,33 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import RequireAdmin from './components/RequireAdmin'
-import PdfViewer from './pages/PdfViewer'
-
-import AdminDashboardPage       from './pages/AdminDashboardPage'
-import CollectionManagementPage from './pages/CollectionManagementPage'
-import ThesisUploadPage         from './pages/ThesisUploadPage'
-import ThesisEditPage           from './pages/ThesisEditPage'
-import CategoryManagementPage   from './pages/CategoryManagementPage'
-import UserManagementPage       from './pages/UserManagementPage'
-import AuditLogsPage            from './pages/AuditLogsPage'
-import ReportsPage              from './pages/ReportsPage'
-import ReportedItemsPage        from './pages/ReportedItemsPage'
-
-import ThesisDetail from './pages/ThesisDetail'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import LandingPage from './pages/LandingPage'
-import BrowsePage from './pages/BrowsePage'
-import SearchPage from './pages/SearchPage'
-import DashboardPage from './pages/DashboardPage'
-import BookmarksPage from './pages/BookmarksPage'
-import ProfilePage from './pages/ProfilePage'
-import ReadingHistoryPage from './pages/ReadingHistoryPage'
+import { Loader } from './components/Loader'
+
+// Every page is its own chunk, fetched only when a user actually navigates
+// there, instead of one bundle containing the whole app up front.
+const PdfViewer               = lazy(() => import('./pages/PdfViewer'))
+const AdminDashboardPage       = lazy(() => import('./pages/AdminDashboardPage'))
+const CollectionManagementPage = lazy(() => import('./pages/CollectionManagementPage'))
+const ThesisUploadPage         = lazy(() => import('./pages/ThesisUploadPage'))
+const ThesisEditPage           = lazy(() => import('./pages/ThesisEditPage'))
+const CategoryManagementPage   = lazy(() => import('./pages/CategoryManagementPage'))
+const UserManagementPage       = lazy(() => import('./pages/UserManagementPage'))
+const AuditLogsPage            = lazy(() => import('./pages/AuditLogsPage'))
+const ReportsPage              = lazy(() => import('./pages/ReportsPage'))
+const ReportedItemsPage        = lazy(() => import('./pages/ReportedItemsPage'))
+const ThesisDetail             = lazy(() => import('./pages/ThesisDetail'))
+const LoginPage                = lazy(() => import('./pages/LoginPage'))
+const RegisterPage             = lazy(() => import('./pages/RegisterPage'))
+const LandingPage              = lazy(() => import('./pages/LandingPage'))
+const BrowsePage                = lazy(() => import('./pages/BrowsePage'))
+const SearchPage                = lazy(() => import('./pages/SearchPage'))
+const DashboardPage             = lazy(() => import('./pages/DashboardPage'))
+const BookmarksPage             = lazy(() => import('./pages/BookmarksPage'))
+const ProfilePage               = lazy(() => import('./pages/ProfilePage'))
+const ReadingHistoryPage        = lazy(() => import('./pages/ReadingHistoryPage'))
 
 function InLayout({ children, adminOnly = false }) {
   return (
@@ -56,61 +59,42 @@ function HomeRedirect() {
   return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
 }
 
-function PlaceholderPage({ title, subtitle = 'This page is ready to be connected to its final screen.' }) {
-  return (
-    <>
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb"><span>TIPIGANAN</span></div>
-          <h1 className="page-title">{title}</h1>
-          <p className="page-subtitle">{subtitle}</p>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-body text-center">
-          <i className="fas fa-layer-group text-primary-blue" style={{fontSize: 34, marginBottom: 12}}></i>
-          <p className="text-muted mb-0">The route is working. Build the page content here next.</p>
-        </div>
-      </div>
-    </>
-  )
-}
-
 export default function App() {
   return (
-    <Routes>
-      {/* Public */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/home" element={<HomeRedirect />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/LoginPage" element={<Navigate to="/login" replace />} />
-      <Route path="/register" element={<RegisterPage />} />
+    <Suspense fallback={<Loader label="Loading page…" />}>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/home" element={<HomeRedirect />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/LoginPage" element={<Navigate to="/login" replace />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-      {/* Public browsing — guests can browse, search, and view thesis details */}
-      <Route path="/theses/:id" element={<PublicLayout><ThesisDetail /></PublicLayout>} />
-      <Route path="/browse"     element={<PublicLayout><BrowsePage /></PublicLayout>} />
-      <Route path="/search"     element={<PublicLayout><SearchPage /></PublicLayout>} />
+        {/* Public browsing — guests can browse, search, and view thesis details */}
+        <Route path="/theses/:id" element={<PublicLayout><ThesisDetail /></PublicLayout>} />
+        <Route path="/browse"     element={<PublicLayout><BrowsePage /></PublicLayout>} />
+        <Route path="/search"     element={<PublicLayout><SearchPage /></PublicLayout>} />
 
-      {/* Student area */}
-      <Route path="/dashboard"  element={<InLayout><DashboardPage /></InLayout>} />
+        {/* Student area */}
+        <Route path="/dashboard"  element={<InLayout><DashboardPage /></InLayout>} />
 
-      <Route path="/viewer/:token" element={<ProtectedRoute><PdfViewer /></ProtectedRoute>} />
-      <Route path="/bookmarks" element={<InLayout><BookmarksPage /></InLayout>} />
-      <Route path="/favorites" element={<InLayout><BookmarksPage /></InLayout>} />
-      <Route path="/history"   element={<InLayout><ReadingHistoryPage /></InLayout>} />
-      <Route path="/profile"   element={<InLayout><ProfilePage /></InLayout>} />
+        <Route path="/viewer/:token" element={<ProtectedRoute><PdfViewer /></ProtectedRoute>} />
+        <Route path="/bookmarks" element={<InLayout><BookmarksPage /></InLayout>} />
+        <Route path="/favorites" element={<InLayout><BookmarksPage /></InLayout>} />
+        <Route path="/history"   element={<InLayout><ReadingHistoryPage /></InLayout>} />
+        <Route path="/profile"   element={<InLayout><ProfilePage /></InLayout>} />
 
-      {/* Admin area */}
-      <Route path="/admin"             element={<Admin><AdminDashboardPage /></Admin>} />
-      <Route path="/admin/collections" element={<Admin><CollectionManagementPage /></Admin>} />
-      <Route path="/admin/upload"      element={<Admin><ThesisUploadPage /></Admin>} />
-      <Route path="/admin/theses/:id/edit" element={<Admin><ThesisEditPage /></Admin>} />
-      <Route path="/admin/categories"  element={<Admin><CategoryManagementPage /></Admin>} />
-      <Route path="/admin/users"       element={<Admin><UserManagementPage /></Admin>} />
-      <Route path="/admin/audit-logs"  element={<Admin><AuditLogsPage /></Admin>} />
-      <Route path="/admin/reports"     element={<Admin><ReportsPage /></Admin>} />
-      <Route path="/admin/reported-items" element={<Admin><ReportedItemsPage /></Admin>} />
-    </Routes>
+        {/* Admin area */}
+        <Route path="/admin"             element={<Admin><AdminDashboardPage /></Admin>} />
+        <Route path="/admin/collections" element={<Admin><CollectionManagementPage /></Admin>} />
+        <Route path="/admin/upload"      element={<Admin><ThesisUploadPage /></Admin>} />
+        <Route path="/admin/theses/:id/edit" element={<Admin><ThesisEditPage /></Admin>} />
+        <Route path="/admin/categories"  element={<Admin><CategoryManagementPage /></Admin>} />
+        <Route path="/admin/users"       element={<Admin><UserManagementPage /></Admin>} />
+        <Route path="/admin/audit-logs"  element={<Admin><AuditLogsPage /></Admin>} />
+        <Route path="/admin/reports"     element={<Admin><ReportsPage /></Admin>} />
+        <Route path="/admin/reported-items" element={<Admin><ReportedItemsPage /></Admin>} />
+      </Routes>
+    </Suspense>
   )
 }
