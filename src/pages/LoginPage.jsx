@@ -20,9 +20,15 @@ export default function LoginPage() {
       const from = location.state?.from?.pathname
       navigate(from || (isAdmin ? '/admin' : '/dashboard'), { replace: true })
     } catch (err) {
-      const msg = err?.response?.data?.message
-        || err?.response?.data?.errors?.email?.[0]
-        || 'Invalid credentials'
+      // No `response` at all means the request never got an answer back
+      // (server down, wrong port, CORS block) — a completely different
+      // problem from a rejected login, and worth telling apart so it
+      // doesn't look like a wrong password.
+      const msg = !err?.response
+        ? 'Could not reach the server. Check that the backend is running and try again.'
+        : err?.response?.data?.message
+          || err?.response?.data?.errors?.email?.[0]
+          || 'Invalid credentials'
       setError(msg)
     } finally {
       setSubmitting(false)

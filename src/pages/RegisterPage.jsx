@@ -44,9 +44,14 @@ export default function RegisterPage() {
       })
       navigate(userType === 'student' ? '/dashboard' : '/dashboard', { replace: true })
     } catch (err) {
-      const errs = err?.response?.data?.errors
-      const msg = errs ? Object.values(errs).flat().join(' ')
-        : err?.response?.data?.message || 'Registration failed. Please try again.'
+      let msg
+      if (!err?.response) {
+        msg = 'Could not reach the server. Check that the backend is running and try again.'
+      } else {
+        const errs = err.response.data?.errors
+        msg = errs ? Object.values(errs).flat().join(' ')
+          : err.response.data?.message || 'Registration failed. Please try again.'
+      }
       setError(msg)
     } finally {
       setSubmitting(false)
