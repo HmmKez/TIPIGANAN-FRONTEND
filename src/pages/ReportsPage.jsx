@@ -13,6 +13,11 @@ const REPORT_TYPES = [
   { value: 'peak-hours',     label: 'Peak Usage Hours' },
 ]
 
+const ROLE_OPTIONS = [
+  { value: 'student', label: 'Students' },
+  { value: 'teacher', label: 'Teachers' },
+]
+
 export default function ReportsPage() {
   const { notify } = useToast()
   const [dashboard, setDashboard] = useState(null)
@@ -23,33 +28,65 @@ export default function ReportsPage() {
   const [peakHours, setPeakHours] = useState([])
   const [mostCited, setMostCited] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filtering, setFiltering] = useState(false)
   const [error, setError] = useState(null)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exportingType, setExportingType] = useState(null)
 
+  // Role + date filters apply only to the user-activity reports (citations,
+  // searches, active users, peak hours) — Collections by Department/Year and
+  // the top-level totals aren't about who did what, so they stay unfiltered.
+  const [roles, setRoles] = useState([])
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const toggleRole = (value) => {
+    setRoles(prev => prev.includes(value) ? prev.filter(r => r !== value) : [...prev, value])
+  }
+  const clearFilters = () => { setRoles([]); setDateFrom(''); setDateTo('') }
+  const hasActiveFilters = roles.length > 0 || dateFrom || dateTo
+
+  const filterParams = {
+    roles: roles.join(',') || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
+  }
+
+  // Unfiltered data — fetched once
   useEffect(() => {
     setLoading(true); setError(null)
     Promise.all([
       reportsApi.dashboard(),
       reportsApi.byDepartment(),
       reportsApi.byYear(),
-      reportsApi.mostSearched(),
-      reportsApi.mostActive(),
-      reportsApi.peakHours(),
-      reportsApi.mostCited(),
     ])
-      .then(([d, dep, yr, ms, ma, ph, mc]) => {
+      .then(([d, dep, yr]) => {
         setDashboard(d.data)
         setByDept(dep.data || [])
         setByYear(yr.data || [])
+      })
+      .catch(err => setError(err?.response?.data?.message || err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Filterable reports — refetched whenever role/date filters change
+  useEffect(() => {
+    setFiltering(true)
+    Promise.all([
+      reportsApi.mostSearched(filterParams),
+      reportsApi.mostActive(filterParams),
+      reportsApi.peakHours(filterParams),
+      reportsApi.mostCited(filterParams),
+    ])
+      .then(([ms, ma, ph, mc]) => {
         setMostSearched(ms.data || [])
         setMostActive(ma.data || [])
         setPeakHours(ph.data || [])
         setMostCited(mc.data || [])
       })
       .catch(err => setError(err?.response?.data?.message || err.message))
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => setFiltering(false))
+  }, [roles.join(','), dateFrom, dateTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxDept = Math.max(1, ...byDept.map(x => Number(x.total) || 0))
   const maxYear = Math.max(1, ...byYear.map(x => Number(x.total) || 0))
@@ -60,7 +97,7 @@ export default function ReportsPage() {
     setExportMenuOpen(false)
     setExportingType(reportType)
     try {
-      const res = await reportsApi.exportPdf({ report: reportType })
+      const res = await reportsApi.exportPdf({ report: reportType, ...filterParams })
       const blob = new Blob([res.data], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -124,6 +161,46 @@ export default function ReportsPage() {
         </div>
       )}
 
+      {/* Activity filters — apply to Most Cited, Most Searched, Most Active
+          Users, and Peak Hours below (the reports driven by who did what) */}
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel-body" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+              <i className="fas fa-filter" style={{ marginRight: 6 }}></i>Role
+            </span>
+            {ROLE_OPTIONS.map(opt => (
+              <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={roles.includes(opt.value)} onChange={() => toggleRole(opt.value)} />
+                {opt.label}
+              </label>
+            ))}
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {roles.length === 0 ? '(showing all roles)' : ''}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Date</span>
+            <input type="date" className="form-control" style={{ width: 150, padding: '5px 8px' }}
+                   value={dateFrom} max={dateTo || undefined}
+                   onChange={e => setDateFrom(e.target.value)} />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>to</span>
+            <input type="date" className="form-control" style={{ width: 150, padding: '5px 8px' }}
+                   value={dateTo} min={dateFrom || undefined}
+                   onChange={e => setDateTo(e.target.value)} />
+          </div>
+
+          {hasActiveFilters && (
+            <button className="btn btn-secondary" style={{ padding: '5px 12px', fontSize: 13 }} onClick={clearFilters}>
+              <i className="fas fa-times"></i> Clear filters
+            </button>
+          )}
+
+          {filtering && <span className="text-muted" style={{ fontSize: 12 }}><i className="fas fa-spinner fa-spin"></i> Updating…</span>}
+        </div>
+      </div>
+
       {/* KPI Row */}
       <div className="stat-grid">
         <div className="stat-card">
@@ -143,8 +220,8 @@ export default function ReportsPage() {
         </div>
         <div className="stat-card">
           <div className="stat-card-icon orange"><i className="fas fa-clock"></i></div>
-          <div className="stat-value">{loading ? '…' : totalActiveHours.toLocaleString()}</div>
-          <div className="stat-label">Top 10 Hours Active</div>
+          <div className="stat-value">{filtering ? '…' : totalActiveHours.toLocaleString()}</div>
+          <div className="stat-label">Top 10 Hours Active{hasActiveFilters ? ' (filtered)' : ''}</div>
         </div>
       </div>
 
@@ -219,8 +296,10 @@ export default function ReportsPage() {
                     <td><b>{row.citation_count}</b></td>
                   </tr>
                 ))}
-                {!loading && mostCited.length === 0 && (
-                  <tr><td colSpan="4" className="text-muted" style={{ padding: 20 }}>No citation logs yet.</td></tr>
+                {!filtering && mostCited.length === 0 && (
+                  <tr><td colSpan="4" className="text-muted" style={{ padding: 20 }}>
+                    {hasActiveFilters ? 'No citation logs match the current filters.' : 'No citation logs yet.'}
+                  </td></tr>
                 )}
               </tbody>
             </table>
@@ -248,8 +327,10 @@ export default function ReportsPage() {
                     <td><b>{row.count}</b></td>
                   </tr>
                 ))}
-                {!loading && mostSearched.length === 0 && (
-                  <tr><td colSpan="3" className="text-muted" style={{ padding: 20 }}>No search logs yet.</td></tr>
+                {!filtering && mostSearched.length === 0 && (
+                  <tr><td colSpan="3" className="text-muted" style={{ padding: 20 }}>
+                    {hasActiveFilters ? 'No searches match the current filters.' : 'No search logs yet.'}
+                  </td></tr>
                 )}
               </tbody>
             </table>
@@ -286,8 +367,10 @@ export default function ReportsPage() {
                     <td><b>{row.active_hours}</b></td>
                   </tr>
                 ))}
-                {!loading && mostActive.length === 0 && (
-                  <tr><td colSpan="4" className="text-muted" style={{ padding: 20 }}>No activity yet.</td></tr>
+                {!filtering && mostActive.length === 0 && (
+                  <tr><td colSpan="4" className="text-muted" style={{ padding: 20 }}>
+                    {hasActiveFilters ? 'No matching users for the current filters.' : 'No activity yet.'}
+                  </td></tr>
                 )}
               </tbody>
             </table>
@@ -303,7 +386,11 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="panel-body">
-            {peakHours.length === 0 && !loading && <div className="text-muted" style={{ padding: 20 }}>No data.</div>}
+            {peakHours.length === 0 && !filtering && (
+              <div className="text-muted" style={{ padding: 20 }}>
+                {hasActiveFilters ? 'No activity matches the current filters.' : 'No data.'}
+              </div>
+            )}
             <div className="bar-chart">
               {peakHours.map(item => (
                 <div className="bar-col" key={item.hour}>

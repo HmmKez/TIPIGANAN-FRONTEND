@@ -59,14 +59,17 @@ export const auditApi = {
 }
 
 // ============ REPORTS ============
+// mostCited/mostSearched/mostActive/peakHours accept an optional
+// { roles: 'student,teacher', date_from, date_to } filter object — omit
+// any key to leave that dimension unfiltered.
 export const reportsApi = {
   dashboard:    () => api.get('/reports/dashboard'),
-  mostCited:    () => api.get('/reports/most-cited'),
+  mostCited:    (params) => api.get('/reports/most-cited', { params }),
   byDepartment: () => api.get('/reports/by-department'),
   byYear:       () => api.get('/reports/by-year'),
-  mostSearched: () => api.get('/reports/most-searched'),
-  mostActive:   () => api.get('/reports/most-active'),
-  peakHours:    () => api.get('/reports/peak-hours'),
+  mostSearched: (params) => api.get('/reports/most-searched', { params }),
+  mostActive:   (params) => api.get('/reports/most-active', { params }),
+  peakHours:    (params) => api.get('/reports/peak-hours', { params }),
   exportPdf:    (params) => api.get('/reports/export', { params, responseType: 'blob' }),
 }
 
