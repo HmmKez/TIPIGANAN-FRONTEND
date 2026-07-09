@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { Loader, ErrorMessage } from '../components/Loader'
 import { thesesApi } from '../api/theses'
-import { favoritesApi, categoriesApi } from '../api'
+import { favoritesApi, categoriesApi, usersApi } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 
 const DEPT_ICONS = {
@@ -20,13 +20,6 @@ const GRADIENTS = [
   'linear-gradient(135deg,#3498DB,#5DADE2)',
 ]
 
-// TODO(backend): there is no reading_history read endpoint in routes/api.php
-// (the table exists in the schema, but nothing exposes it). "Recently Read"
-// count and the per-card "% read" progress are both hardcoded placeholders
-// until that endpoint exists.
-const RECENTLY_READ_PLACEHOLDER = 37
-const READ_PROGRESS_PLACEHOLDER = [68, 32, 15]
-
 // TODO(backend): "Viewed" and "Searched" activity entries have no data
 // source available to non-staff users (audit-logs is staff/super_admin
 // only, and there's no per-user activity feed endpoint). These two static
@@ -39,7 +32,7 @@ const ACTIVITY_PLACEHOLDERS = [
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [theses, setTheses] = useState([])
+  const [readingHistory, setReadingHistory] = useState([])
   const [favorites, setFavorites] = useState([])
   const [categories, setCategories] = useState([])
   const [totalItems, setTotalItems] = useState(null)
@@ -50,16 +43,16 @@ export default function DashboardPage() {
     let mounted = true
     setLoading(true); setError(null)
     Promise.allSettled([
-      thesesApi.list({ per_page: 3, sort: 'recent' }),
+      thesesApi.list({ per_page: 1 }),
       favoritesApi.list(),
       categoriesApi.list(),
-    ]).then(([tRes, fRes, cRes]) => {
+      usersApi.profile(),
+    ]).then(([tRes, fRes, cRes, pRes]) => {
       if (!mounted) return
       if (tRes.status === 'fulfilled') {
-        const payload = tRes.value.data
-        setTheses(payload?.data || [])
         // Laravel's paginate() response includes a top-level `total` — that's
-        // the real "Total Items" count, not the 3 items returned per page.
+        // the real "Total Items" count; per_page:1 since we only need it.
+        const payload = tRes.value.data
         if (typeof payload?.total === 'number') setTotalItems(payload.total)
       }
       if (fRes.status === 'fulfilled') {
@@ -68,12 +61,31 @@ export default function DashboardPage() {
       if (cRes.status === 'fulfilled') {
         setCategories(cRes.value.data?.data || cRes.value.data || [])
       }
+      if (pRes.status === 'fulfilled') {
+        // This user's own reading_history rows (most recent first), each
+        // time they opened a thesis — unique per account, empty for a
+        // brand-new one. Not shared/global like the old "recent uploads"
+        // fallback this section used to show.
+        setReadingHistory(pRes.value.data?.history || [])
+      }
       if (tRes.status === 'rejected' && fRes.status === 'rejected') {
         setError(tRes.reason)
       }
     }).finally(() => mounted && setLoading(false))
     return () => { mounted = false }
   }, [])
+
+  // A thesis viewed multiple times shows up once, at its most recent view —
+  // "Continue Reading" means "things you've started," not a raw click log.
+  const continueReading = []
+  const seenThesisIds = new Set()
+  for (const h of readingHistory) {
+    const t = h.thesis
+    if (!t || seenThesisIds.has(t.id)) continue
+    seenThesisIds.add(t.id)
+    continueReading.push({ ...t, viewed_at: h.viewed_at })
+    if (continueReading.length === 3) break
+  }
 
   const firstName = user?.name?.split(' ')[0] || 'there'
 
@@ -114,7 +126,7 @@ export default function DashboardPage() {
         <div className="simple-stat"><div className="v">{collegeCount}</div><div className="l">College</div></div>
         <div className="simple-stat"><div className="v">{categories.length || '—'}</div><div className="l">Departments</div></div>
         <div className="simple-stat"><div className="v">{favorites.length}</div><div className="l">My Bookmarks</div></div>
-        <div className="simple-stat"><div className="v">{RECENTLY_READ_PLACEHOLDER}</div><div className="l">Recently Read</div></div>
+        <div className="simple-stat"><div className="v">{readingHistory.length}{readingHistory.length === 10 ? '+' : ''}</div><div className="l">Recently Read</div></div>
       </div>
 
       <div className="panel-grid-2">
@@ -127,12 +139,12 @@ export default function DashboardPage() {
             <Link to="/history" className="btn btn-sm btn-secondary">View all</Link>
           </div>
           <div className="panel-body" style={{ padding: 0 }}>
-            {loading ? <Loader /> : theses.length === 0 ? (
+            {loading ? <Loader /> : continueReading.length === 0 ? (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <i className="fas fa-book" style={{ fontSize: 32, marginBottom: 8, display: 'block' }}></i>
-                No items to display yet. <Link to="/browse" style={{ color: 'var(--primary-blue)' }}>Browse collections</Link>
+                You haven't opened anything yet. <Link to="/browse" style={{ color: 'var(--primary-blue)' }}>Browse collections</Link>
               </div>
-            ) : theses.slice(0, 3).map((t, i) => (
+            ) : continueReading.map((t, i) => (
               <div key={t.id} className="cr-card" onClick={() => navigate(`/theses/${t.id}`)}>
                 <div className="cr-cover" style={{ background: GRADIENTS[i % GRADIENTS.length] }}>
                   <i className={`fas ${DEPT_ICONS[t.department] || 'fa-file-alt'}`}></i>
@@ -152,8 +164,7 @@ export default function DashboardPage() {
                   <div className="cr-abstract">{t.abstract || 'No abstract available.'}</div>
                 </div>
                 <div className="cr-progress">
-                  <div className="cr-progress-label"><i className="fas fa-book-reader"></i> {READ_PROGRESS_PLACEHOLDER[i % READ_PROGRESS_PLACEHOLDER.length]}% read</div>
-                  <div className="cr-progress-bar"><div style={{ width: `${READ_PROGRESS_PLACEHOLDER[i % READ_PROGRESS_PLACEHOLDER.length]}%` }}></div></div>
+                  <div className="cr-progress-label"><i className="fas fa-clock"></i> Last opened {new Date(t.viewed_at).toLocaleDateString()}</div>
                 </div>
               </div>
             ))}
