@@ -5,6 +5,7 @@ import { Loader, ErrorMessage } from '../components/Loader'
 import { thesesApi } from '../api/theses'
 import { favoritesApi, categoriesApi, usersApi } from '../api'
 import { useAuth } from '../contexts/AuthContext'
+import { timeAgo } from '../utils/timeAgo'
 
 const DEPT_ICONS = {
   'CAST': 'fa-flask', 'CCJ': 'fa-balance-scale', 'COE': 'fa-microchip',
@@ -20,19 +21,11 @@ const GRADIENTS = [
   'linear-gradient(135deg,#3498DB,#5DADE2)',
 ]
 
-// TODO(backend): "Viewed" and "Searched" activity entries have no data
-// source available to non-staff users (audit-logs is staff/super_admin
-// only, and there's no per-user activity feed endpoint). These two static
-// entries are placeholders; only the "Bookmarked" entries below are real.
-const ACTIVITY_PLACEHOLDERS = [
-  { type: 'view', title: 'Viewed "IoT-Based Smart Classroom"', time: 'Yesterday at 3:24 PM' },
-  { type: 'search', title: 'Searched "renewable energy"', time: 'Yesterday at 1:10 PM' },
-]
-
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [readingHistory, setReadingHistory] = useState([])
+  const [recentSearches, setRecentSearches] = useState([])
   const [favorites, setFavorites] = useState([])
   const [categories, setCategories] = useState([])
   const [totalItems, setTotalItems] = useState(null)
@@ -67,6 +60,7 @@ export default function DashboardPage() {
         // brand-new one. Not shared/global like the old "recent uploads"
         // fallback this section used to show.
         setReadingHistory(pRes.value.data?.history || [])
+        setRecentSearches(pRes.value.data?.recent_searches || [])
       }
       if (tRes.status === 'rejected' && fRes.status === 'rejected') {
         setError(tRes.reason)
@@ -96,15 +90,27 @@ export default function DashboardPage() {
     (sum, c) => sum + (c.id === gsCategory?.id ? 0 : (c.theses_count || 0)), 0
   )
 
-  // Real activity: recent bookmarks. Padded with placeholder view/search
-  // entries (see TODO above) to match the mockup's 4-item feed.
+  // Real activity feed: this user's own bookmarks, views, and searches,
+  // merged and sorted by actual timestamp — no placeholders. Empty for a
+  // brand-new account until they do something.
   const activityItems = [
-    ...favorites.slice(0, 2).map(f => {
+    ...favorites.map(f => {
       const t = f.thesis || f
-      return { type: 'bookmark', title: `Bookmarked "${t.title}"`, time: 'Recently' }
+      return { type: 'bookmark', title: `Bookmarked "${t.title}"`, at: f.created_at }
     }),
-    ...ACTIVITY_PLACEHOLDERS,
-  ].slice(0, 4)
+    ...readingHistory.map(h => ({
+      type: 'view',
+      title: `Viewed "${h.thesis?.title || 'a thesis'}"`,
+      at: h.viewed_at,
+    })),
+    ...recentSearches.map(s => ({
+      type: 'search',
+      title: `Searched "${s.query}"`,
+      at: s.created_at,
+    })),
+  ]
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, 4)
 
   return (
     <>
@@ -196,7 +202,7 @@ export default function DashboardPage() {
                     <div className={`activity-icon ${iconClass}`}><i className={`fas ${icon}`}></i></div>
                     <div className="activity-content">
                       <div className="activity-title" dangerouslySetInnerHTML={{ __html: a.title.replace(/"([^"]+)"/, '"<b>$1</b>"') }} />
-                      <div className="activity-time">{a.time}</div>
+                      <div className="activity-time">{timeAgo(a.at)}</div>
                     </div>
                   </li>
                 )

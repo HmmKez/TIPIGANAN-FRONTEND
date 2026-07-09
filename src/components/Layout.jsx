@@ -2,19 +2,8 @@ import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { usersApi } from '../api'
+import { timeAgo } from '../utils/timeAgo'
 import ConfirmModal from './ConfirmModal'
-
-function timeAgo(dateStr) {
-  const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000)
-  if (seconds < 60) return 'Just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d ago`
-  return new Date(dateStr).toLocaleDateString()
-}
 
 function getMenu(isAdmin, isGuest) {
   if (isGuest) {
