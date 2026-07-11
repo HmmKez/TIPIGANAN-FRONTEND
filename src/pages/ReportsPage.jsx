@@ -9,7 +9,6 @@ const REPORT_TYPES = [
   { value: 'by-department',  label: 'Collections by Department' },
   { value: 'by-year',        label: 'Collections by Year' },
   { value: 'most-searched',  label: 'Most Searched Keywords' },
-  { value: 'most-active',    label: 'Most Active Users' },
   { value: 'peak-hours',     label: 'Peak Usage Hours' },
 ]
 
@@ -24,7 +23,6 @@ export default function ReportsPage() {
   const [byDept, setByDept] = useState([])
   const [byYear, setByYear] = useState([])
   const [mostSearched, setMostSearched] = useState([])
-  const [mostActive, setMostActive] = useState([])
   const [peakHours, setPeakHours] = useState([])
   const [mostCited, setMostCited] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,8 +32,8 @@ export default function ReportsPage() {
   const [exportingType, setExportingType] = useState(null)
 
   // Role + date filters apply only to the user-activity reports (citations,
-  // searches, active users, peak hours) — Collections by Department/Year and
-  // the top-level totals aren't about who did what, so they stay unfiltered.
+  // searches, peak hours) — Collections by Department/Year and the
+  // top-level totals aren't about who did what, so they stay unfiltered.
   const [roles, setRoles] = useState([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -74,13 +72,11 @@ export default function ReportsPage() {
     setFiltering(true)
     Promise.all([
       reportsApi.mostSearched(filterParams),
-      reportsApi.mostActive(filterParams),
       reportsApi.peakHours(filterParams),
       reportsApi.mostCited(filterParams),
     ])
-      .then(([ms, ma, ph, mc]) => {
+      .then(([ms, ph, mc]) => {
         setMostSearched(ms.data || [])
-        setMostActive(ma.data || [])
         setPeakHours(ph.data || [])
         setMostCited(mc.data || [])
       })
@@ -91,7 +87,6 @@ export default function ReportsPage() {
   const maxDept = Math.max(1, ...byDept.map(x => Number(x.total) || 0))
   const maxYear = Math.max(1, ...byYear.map(x => Number(x.total) || 0))
   const maxHour = Math.max(1, ...peakHours.map(x => Number(x.total) || 0))
-  const totalActiveHours = mostActive.reduce((s, u) => s + Number(u.active_hours || 0), 0)
 
   const downloadReport = async (reportType, label) => {
     setExportMenuOpen(false)
@@ -161,8 +156,8 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Activity filters — apply to Most Cited, Most Searched, Most Active
-          Users, and Peak Hours below (the reports driven by who did what) */}
+      {/* Activity filters — apply to Most Cited, Most Searched, and Peak
+          Hours below (the reports driven by who did what) */}
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="panel-body" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -217,11 +212,6 @@ export default function ReportsPage() {
           <div className="stat-card-icon purple"><i className="fas fa-quote-right"></i></div>
           <div className="stat-value">{loading ? '…' : (dashboard?.total_citations ?? 0).toLocaleString()}</div>
           <div className="stat-label">Citations Logged</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon orange"><i className="fas fa-clock"></i></div>
-          <div className="stat-value">{filtering ? '…' : totalActiveHours.toLocaleString()}</div>
-          <div className="stat-label">Top 10 Hours Active{hasActiveFilters ? ' (filtered)' : ''}</div>
         </div>
       </div>
 
@@ -338,69 +328,29 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="panel-grid-2">
-        {/* Most Active Users */}
-        <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title">
-              <i className="fas fa-users" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Most Active Users
-            </div>
-          </div>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr><th>#</th><th>User</th><th>Role</th><th>Hours Active</th></tr>
-              </thead>
-              <tbody>
-                {mostActive.map((row, i) => (
-                  <tr key={row.user_id}>
-                    <td><b>{i + 1}</b></td>
-                    <td>
-                      {row.user
-                        ? <><b>{row.user.name}</b><br /><small className="text-muted">{row.user.email}</small></>
-                        : `User #${row.user_id}`}
-                    </td>
-                    <td>
-                      <span className="badge badge-info">{row.user?.role || '—'}</span>
-                    </td>
-                    <td><b>{row.active_hours}</b></td>
-                  </tr>
-                ))}
-                {!filtering && mostActive.length === 0 && (
-                  <tr><td colSpan="4" className="text-muted" style={{ padding: 20 }}>
-                    {hasActiveFilters ? 'No matching users for the current filters.' : 'No activity yet.'}
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
+      {/* Peak Hours */}
+      <div className="panel">
+        <div className="panel-header">
+          <div className="panel-title">
+            <i className="fas fa-clock" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
+            Peak Usage Hours
           </div>
         </div>
-
-        {/* Peak Hours */}
-        <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title">
-              <i className="fas fa-clock" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Peak Usage Hours
+        <div className="panel-body">
+          {peakHours.length === 0 && !filtering && (
+            <div className="text-muted" style={{ padding: 20 }}>
+              {hasActiveFilters ? 'No activity matches the current filters.' : 'No data.'}
             </div>
-          </div>
-          <div className="panel-body">
-            {peakHours.length === 0 && !filtering && (
-              <div className="text-muted" style={{ padding: 20 }}>
-                {hasActiveFilters ? 'No activity matches the current filters.' : 'No data.'}
-              </div>
-            )}
-            <div className="bar-chart">
-              {peakHours.map(item => (
-                <div className="bar-col" key={item.hour}>
-                  <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxHour) * 100)}%` }}>
-                    <span className="bar-value">{item.total}</span>
-                  </div>
-                  <span className="bar-label">{String(item.hour).padStart(2, '0')}h</span>
+          )}
+          <div className="bar-chart">
+            {peakHours.map(item => (
+              <div className="bar-col" key={item.hour}>
+                <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxHour) * 100)}%` }}>
+                  <span className="bar-value">{item.total}</span>
                 </div>
-              ))}
-            </div>
+                <span className="bar-label">{String(item.hour).padStart(2, '0')}h</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

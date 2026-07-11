@@ -48,7 +48,6 @@ export const reportsApi = {
   byDepartment: (params) => api.get('/reports/by-department', { params }),
   byYear: (params) => api.get('/reports/by-year', { params }),
   mostSearched: (params) => api.get('/reports/most-searched', { params }),
-  mostActive: (params) => api.get('/reports/most-active', { params }),
   peakHours: (params) => api.get('/reports/peak-hours', { params }),
 }
 

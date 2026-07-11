@@ -59,7 +59,7 @@ export const auditApi = {
 }
 
 // ============ REPORTS ============
-// mostCited/mostSearched/mostActive/peakHours accept an optional
+// mostCited/mostSearched/peakHours accept an optional
 // { roles: 'student,teacher', date_from, date_to } filter object — omit
 // any key to leave that dimension unfiltered.
 export const reportsApi = {
@@ -68,7 +68,6 @@ export const reportsApi = {
   byDepartment: () => api.get('/reports/by-department'),
   byYear:       () => api.get('/reports/by-year'),
   mostSearched: (params) => api.get('/reports/most-searched', { params }),
-  mostActive:   (params) => api.get('/reports/most-active', { params }),
   peakHours:    (params) => api.get('/reports/peak-hours', { params }),
   exportPdf:    (params) => api.get('/reports/export', { params, responseType: 'blob' }),
 }
