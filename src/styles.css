@@ -162,7 +162,7 @@ body {
 
 .cr-progress {
   flex-shrink: 0;
-  width: 90px;
+  width: 120px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -173,7 +173,7 @@ body {
 .cr-progress-label {
   font-size: 11px;
   color: var(--text-muted);
-  white-space: nowrap;
+  text-align: right;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -204,6 +204,11 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* ============ SIDEBAR ============ */
+/* Hidden by default at every screen size; .open is the one thing that
+   shows it. On desktop it starts open (JS defaults sidebarOpen to true
+   there) and pushes the content over; on mobile it starts closed and
+   floats above the content as a drawer instead (see .sidebar-backdrop
+   and the max-width:768px block below). */
 .sidebar {
   width: var(--sidebar-width);
   background: linear-gradient(180deg, var(--sidebar-gradient-start) 0%, var(--sidebar-gradient-end) 100%);
@@ -216,11 +221,29 @@ input, select, textarea { font-family: inherit; }
   z-index: 100;
   display: flex;
   flex-direction: column;
+  transform: translateX(-100%);
   transition: transform 0.25s ease;
 }
 
-.sidebar.collapsed { transform: translateX(-100%); }
-.main-wrap.sidebar-collapsed { margin-left: 0; }
+.sidebar.open { transform: translateX(0); }
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 99; /* under .sidebar (100), over everything else */
+}
+
+@media (min-width: 769px) {
+  /* Desktop sidebar pushes content over (see .main-wrap.sidebar-open)
+     rather than floating above it, so there's nothing to dim. */
+  .sidebar-backdrop { display: none; }
+}
+
+.menu-toggle {
+  cursor: pointer;
+  color: var(--text-muted);
+}
 
 .sidebar-brand {
   padding: 18px 20px;
@@ -315,12 +338,19 @@ input, select, textarea { font-family: inherit; }
 
 /* ============ MAIN CONTENT ============ */
 .main-wrap {
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   flex: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   transition: margin-left 0.25s ease;
+}
+
+@media (min-width: 769px) {
+  /* Only push content over on desktop — on mobile the sidebar floats
+     above the page instead (see .sidebar-backdrop), so there's no gap
+     to reserve for it. */
+  .main-wrap.sidebar-open { margin-left: var(--sidebar-width); }
 }
 
 /* ============ TOP HEADER ============ */
@@ -909,6 +939,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .auth-left { display: none; }
 }
 
+@media (max-width: 480px) {
+  .auth-right { padding: 24px; }
+}
+
 /* ============ BROWSE / SEARCH ============ */
 .search-bar {
   background: #fff;
@@ -921,12 +955,14 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 .search-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 12px;
 }
 
 .search-input-wrap {
   flex: 1;
+  min-width: 200px;
   position: relative;
 }
 
@@ -1216,6 +1252,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   gap: 4px;
   border-bottom: 1px solid var(--border-light);
   margin-bottom: 20px;
+  /* A handful of tabs (Audit Logs has 7) don't all fit a phone screen at
+     once — scrolls horizontally instead of wrapping, since wrapped tabs
+     break the underline metaphor across rows. */
+  overflow-x: auto;
 }
 
 .tab {
@@ -1226,6 +1266,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   cursor: pointer;
   font-weight: 500;
   transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab:hover { color: var(--primary-blue); }
@@ -1617,16 +1659,20 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .mb-3 { margin-bottom: 24px; }
 .mt-2 { margin-top: 16px; }
 .flex { display: flex; }
-.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
 .gap-2 { gap: 16px; }
 
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
-  .sidebar.open { transform: translateX(0); }
-  .main-wrap { margin-left: 0; }
   .content { padding: 20px 16px; }
   .topbar { padding: 0 16px; }
-  .topbar-left { display: none; }
+  /* The menu toggle stays — it's the only way to open the sidebar on
+     mobile. Just the "Active Term" text/badge (not worth the space here)
+     is what actually hides. */
+  .topbar-left .term-info { display: none; }
+  /* A 44px cover + a 120px date column leaves almost no room for the
+     title/author text at phone widths — drop the date (secondary info)
+     rather than cram the title into an unreadably narrow strip. */
+  .cr-progress { display: none; }
 }
 
 /* ============================================================
@@ -1932,14 +1978,24 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 10px;
+  padding: 40px 10px;
+}
+
+.wm-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wm-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  opacity: 0.16;
+  margin-bottom: 8px;
 }
 
 .wm-text {
-  transform: rotate(-45deg);
-  color: rgba(255, 0, 0, 0.25);
-  font-size: 14px;
-  font-weight: 700;
   text-align: center;
   white-space: nowrap;
   line-height: 1.5;

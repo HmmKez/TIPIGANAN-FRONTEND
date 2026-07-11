@@ -54,11 +54,24 @@ function initials(name) {
   return name.split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase()
 }
 
+// 768px matches the .sidebar mobile breakpoint in styles.css — on phone-width
+// screens the sidebar should start closed (it's a full-screen overlay
+// there), on desktop it should start open (it pushes content over instead).
+const MOBILE_BREAKPOINT = 768
+
 export default function Layout({ children }) {
   const navigate = useNavigate()
   const { user, isAdmin, logout } = useAuth()
   const isGuest = !user
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window === 'undefined' || window.innerWidth > MOBILE_BREAKPOINT
+  )
+  // On mobile the sidebar is a drawer over the page — picking a destination
+  // should close it, same as any other mobile nav drawer. On desktop it
+  // stays open (it doesn't cover anything).
+  const closeSidebarOnMobile = () => {
+    if (window.innerWidth <= MOBILE_BREAKPOINT) setSidebarOpen(false)
+  }
   const [notifOpen, setNotifOpen] = useState(false)
   const [activity, setActivity] = useState(null) // null = not fetched yet
   const [activityLoading, setActivityLoading] = useState(false)
@@ -107,7 +120,14 @@ export default function Layout({ children }) {
 
   return (
     <div className="app-container">
-      <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
+      {/* Closes the drawer on mobile when tapping outside it — not rendered
+          (and irrelevant) on desktop, where the sidebar pushes content
+          instead of covering it. */}
+      {sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)}></div>
+      )}
+
+      <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-brand">
           <img src="https://sis.materdeicollege.com/img/MDC-Logo-clipped.png" alt="MDC" className="sidebar-mdc-logo" />
           <div className="brand-text">
@@ -122,7 +142,7 @@ export default function Layout({ children }) {
             <ul className="sidebar-menu">
               {group.items.map(item => (
                 <li key={item.to}>
-                  <NavLink to={item.to} end={item.exact}
+                  <NavLink to={item.to} end={item.exact} onClick={closeSidebarOnMobile}
                            className={({ isActive }) => isActive ? 'active' : ''}>
                     <i className={`fas ${item.icon}`}></i>{item.label}
                   </NavLink>
@@ -135,14 +155,13 @@ export default function Layout({ children }) {
         <div className="sidebar-footer">© 2026 Mater Dei College<br />TIPIGANAN v1.0.0</div>
       </aside>
 
-      <div className={`main-wrap${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+      <div className={`main-wrap${sidebarOpen ? ' sidebar-open' : ''}`}>
         <header className="topbar">
           <div className="topbar-left">
-            <i className="fas fa-bars" title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-               style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
-               onClick={() => setSidebarCollapsed(v => !v)}></i>
-            <span><b style={{ color: 'var(--text-primary)' }}>Active Term:</b></span>
-            <span className="term-badge">1st Semester AY 2026-2027</span>
+            <i className="fas fa-bars menu-toggle" title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+               onClick={() => setSidebarOpen(v => !v)}></i>
+            <span className="term-info"><b style={{ color: 'var(--text-primary)' }}>Active Term:</b></span>
+            <span className="term-badge term-info">1st Semester AY 2026-2027</span>
           </div>
           <div className="topbar-right">
             {isGuest ? (

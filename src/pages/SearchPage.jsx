@@ -133,8 +133,8 @@ export default function SearchPage() {
             </div>
           </div>
 
-          <div className="results-layout" style={{display:'flex', gap:24, alignItems:'flex-start'}}>
-            <aside style={{width:220, flexShrink:0}}>
+          <div className="results-layout">
+            <aside className="results-sidebar-panel">
               <div style={{background:'#fff', border:'1px solid var(--border-light)', borderRadius:12, padding:18}}>
                 <div style={{fontSize:12, fontWeight:600, textTransform:'uppercase', color:'var(--text-muted)', marginBottom:12, letterSpacing:0.8}}>
                   Refine Results
