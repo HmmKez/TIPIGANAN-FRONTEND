@@ -20,12 +20,11 @@ const GRADIENTS = [
   'linear-gradient(135deg,#E74C3C,#FF8071)',
 ]
 
-// TODO(backend): there is no reading_history endpoint, so "% read" and
-// "Last read" have no real data source. Shown as static placeholders,
-// deterministically derived from favorite.id so they don't jump around on
-// re-render — remove once a real reading-progress endpoint exists.
-function placeholderProgress(id) {
-  return (id * 37) % 100
+function getBookmarkProgress(thesisId) {
+  if (!thesisId) return 0
+  const stored = localStorage.getItem(`tipiganan_read_progress_${thesisId}`)
+  const value = Number(stored)
+  return Number.isFinite(value) && value >= 0 ? Math.min(100, value) : 0
 }
 
 // TODO(backend): "Recently Opened Items" in the mockup comes from reading
@@ -79,15 +78,24 @@ export default function BookmarksPage() {
   const [showRemoveAllModal, setShowRemoveAllModal] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const load = () => {
+  // A favorite whose thesis was deleted keeps showing up here — it's only
+  // removed once the user actually tries to open it (ThesisDetail's 404
+  // handler cleans it up then). Don't auto-delete it on load.
+  const load = async () => {
     setLoading(true); setError(null)
-    favoritesApi.list()
-      .then(res => setFavorites(res.data?.data || res.data || []))
-      .catch(err => setError(err))
-      .finally(() => setLoading(false))
+    try {
+      const res = await favoritesApi.list()
+      setFavorites(res.data?.data || res.data || [])
+    } catch (err) {
+      setError(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(load, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   // Departments derived from actual data, not hardcoded — mockup hardcodes
   // COE/CAST/CON/CABM-B, but real category names vary per install.
@@ -169,7 +177,12 @@ export default function BookmarksPage() {
     text += 'Generated: ' + new Date().toLocaleString() + '\n'
     text += '='.repeat(50) + '\n\n'
     favorites.forEach((f, i) => {
-      const t = f.thesis || {}
+      const t = f.thesis
+      if (!t) {
+        text += `${i + 1}. [This item is no longer available]\n`
+        text += `   Saved: ${new Date(f.created_at).toLocaleDateString()}\n\n`
+        return
+      }
       text += `${i + 1}. ${t.title}\n`
       text += `   Author(s): ${t.authors}\n`
       text += `   Department: ${t.category?.name || '—'}\n`
@@ -256,27 +269,47 @@ export default function BookmarksPage() {
         <div className="thesis-grid">
           {filtered.map((f, i) => {
             const t = f.thesis || {}
+            // The underlying thesis can be deleted out from under a favorite —
+            // the row stays here until the user opens it (ThesisDetail cleans
+            // it up on a 404), so render a "no longer available" placeholder
+            // instead of a card full of blanks.
+            const isDeleted = !f.thesis
             const code = t.category?.name || 'Uncategorized'
-            const progress = placeholderProgress(f.id)
+            const progress = getBookmarkProgress(t.id)
             const coverImage = t.cover_image_path || t.category?.cover_image_path
             return (
-              <div key={f.id} className="thesis-card">
-                <div className="thesis-cover" style={{ background: GRADIENTS[i % GRADIENTS.length] }}>
-                  {coverImage ? (
+              <div key={f.id} className="thesis-card" style={isDeleted ? { opacity: 0.65 } : undefined}>
+                <div className="thesis-cover" style={{ background: isDeleted ? 'linear-gradient(135deg,#999,#bbb)' : GRADIENTS[i % GRADIENTS.length] }}>
+                  {isDeleted ? (
+                    <i className="fas fa-exclamation-triangle"></i>
+                  ) : coverImage ? (
                     <img src={`${apiOrigin}/storage/${coverImage}`} alt=""
                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <i className={`fas ${DEPT_ICONS[code] || 'fa-file-alt'}`}></i>
                   )}
-                  <span className="dept-tag">{code}</span>
-                  <span className="year-tag">{t.year_published || '—'}</span>
+                  {!isDeleted && <span className="dept-tag">{code}</span>}
+                  {!isDeleted && <span className="year-tag">{t.year_published || '—'}</span>}
                 </div>
                 <div className="thesis-info">
-                  <div className="thesis-title">{t.title}</div>
-                  <div className="thesis-author">{t.authors}</div>
-                  <div className="bm-reading-progress">
-                    <div className="bm-reading-progress-bar" style={{ width: `${progress}%` }}></div>
-                  </div>
+                  {isDeleted ? (
+                    <>
+                      <div className="thesis-title">This item is no longer available</div>
+                      <div className="thesis-author text-muted">It may have been deleted by staff.</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="thesis-title">{t.title}</div>
+                      <div className="thesis-author">{t.authors}</div>
+                      <div className="bm-reading-progress">
+                        <div className="bm-reading-progress-bar" style={{ width: `${progress}%` }}></div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                        <span>{progress > 0 ? `${progress}% read` : 'Not started yet'}</span>
+                        {t.year_published ? <span>{t.year_published}</span> : null}
+                      </div>
+                    </>
+                  )}
                   <div className="thesis-meta">
                     <span className="text-muted"><i className="fas fa-clock"></i> Saved {new Date(f.created_at).toLocaleDateString()}</span>
                   </div>
@@ -289,13 +322,13 @@ export default function BookmarksPage() {
                     <button
                       className="bookmark-btn active"
                       title="Remove bookmark"
-                      onClick={() => removeOne(t.id, f.id)}
+                      onClick={() => removeOne(f.thesis_id, f.id)}
                       disabled={busy}
                     >
                       <i className="fas fa-bookmark"></i>
                     </button>
-                    <Link to={`/theses/${t.id}`} className="btn btn-sm btn-primary" style={{ marginLeft: 'auto' }}>
-                      Read
+                    <Link to={`/theses/${f.thesis_id}`} className="btn btn-sm btn-primary" style={{ marginLeft: 'auto' }}>
+                      {isDeleted ? 'View' : 'Read'}
                     </Link>
                   </div>
                 </div>

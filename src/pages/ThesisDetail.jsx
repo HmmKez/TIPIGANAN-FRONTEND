@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api, { apiOrigin } from '../api/axios'
+import { favoritesApi } from '../api'
 import { useToast } from '../components/Toast'
 const isAuthenticated = () => !!localStorage.getItem('tipiganan_token')
 
@@ -36,7 +37,17 @@ export default function ThesisDetail() {
     setLoading(true)
     api.get(`/theses/${id}`)
       .then((res) => { if (!cancelled) setData(res.data) })
-      .catch((err) => { if (!cancelled) setError(err?.response?.data?.message || 'Failed to load thesis.') })
+      .catch((err) => {
+        if (cancelled) return
+        if (err?.response?.status === 404) {
+          if (isAuthenticated()) {
+            favoritesApi.remove(id).catch(() => {})
+          }
+          setError('This thesis is no longer available. It may have been deleted and has been removed from your bookmarks.')
+        } else {
+          setError(err?.response?.data?.message || 'Failed to load thesis.')
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [id])
