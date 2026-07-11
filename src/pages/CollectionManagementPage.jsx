@@ -37,7 +37,7 @@ export default function CollectionManagementPage() {
     thesesApi.list({
       category_id:    categoryId || undefined,
       year_published: year || undefined,
-      author:         query || undefined,
+      q:              query || undefined,
       status:         status || undefined,
       page,
     })
@@ -176,7 +176,7 @@ export default function CollectionManagementPage() {
             <i className="fas fa-search"></i>
             <input
               type="text"
-              placeholder="Search by author name…"
+              placeholder="Search by title or author…"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && (setQuery(searchInput), setPage(1))}
