@@ -9,7 +9,7 @@ const REPORT_TYPES = [
   { value: 'by-department',  label: 'Collections by Department' },
   { value: 'by-year',        label: 'Collections by Year' },
   { value: 'most-searched',  label: 'Most Searched Keywords' },
-  { value: 'peak-hours',     label: 'Peak Usage Hours' },
+  { value: 'users-online',   label: 'Users Online' },
 ]
 
 const ROLE_OPTIONS = [
@@ -23,7 +23,7 @@ export default function ReportsPage() {
   const [byDept, setByDept] = useState([])
   const [byYear, setByYear] = useState([])
   const [mostSearched, setMostSearched] = useState([])
-  const [peakHours, setPeakHours] = useState([])
+  const [usersOnline, setUsersOnline] = useState([])
   const [mostCited, setMostCited] = useState([])
   const [loading, setLoading] = useState(true)
   const [filtering, setFiltering] = useState(false)
@@ -32,7 +32,7 @@ export default function ReportsPage() {
   const [exportingType, setExportingType] = useState(null)
 
   // Role + date filters apply only to the user-activity reports (citations,
-  // searches, peak hours) — Collections by Department/Year and the
+  // searches, users online) — Collections by Department/Year and the
   // top-level totals aren't about who did what, so they stay unfiltered.
   const [roles, setRoles] = useState([])
   const [dateFrom, setDateFrom] = useState('')
@@ -72,12 +72,12 @@ export default function ReportsPage() {
     setFiltering(true)
     Promise.all([
       reportsApi.mostSearched(filterParams),
-      reportsApi.peakHours(filterParams),
+      reportsApi.usersOnline(filterParams),
       reportsApi.mostCited(filterParams),
     ])
-      .then(([ms, ph, mc]) => {
+      .then(([ms, uo, mc]) => {
         setMostSearched(ms.data || [])
-        setPeakHours(ph.data || [])
+        setUsersOnline(uo.data || [])
         setMostCited(mc.data || [])
       })
       .catch(err => setError(err?.response?.data?.message || err.message))
@@ -86,7 +86,7 @@ export default function ReportsPage() {
 
   const maxDept = Math.max(1, ...byDept.map(x => Number(x.total) || 0))
   const maxYear = Math.max(1, ...byYear.map(x => Number(x.total) || 0))
-  const maxHour = Math.max(1, ...peakHours.map(x => Number(x.total) || 0))
+  const maxHour = Math.max(1, ...usersOnline.map(x => Number(x.users_online) || 0))
 
   const downloadReport = async (reportType, label) => {
     setExportMenuOpen(false)
@@ -156,8 +156,8 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Activity filters — apply to Most Cited, Most Searched, and Peak
-          Hours below (the reports driven by who did what) */}
+      {/* Activity filters — apply to Most Cited, Most Searched, and Users
+          Online below (the reports driven by who did what) */}
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="panel-body" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -328,25 +328,28 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Peak Hours */}
+      {/* Users Online */}
       <div className="panel">
         <div className="panel-header">
           <div className="panel-title">
-            <i className="fas fa-clock" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-            Peak Usage Hours
+            <i className="fas fa-user-clock" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
+            Users Online
           </div>
         </div>
         <div className="panel-body">
-          {peakHours.length === 0 && !filtering && (
+          <div className="text-muted" style={{ fontSize: 12, marginBottom: 12 }}>
+            Distinct users active during each hour of the day (24-hour time), across the selected date range.
+          </div>
+          {usersOnline.length === 0 && !filtering && (
             <div className="text-muted" style={{ padding: 20 }}>
               {hasActiveFilters ? 'No activity matches the current filters.' : 'No data.'}
             </div>
           )}
           <div className="bar-chart">
-            {peakHours.map(item => (
+            {usersOnline.map(item => (
               <div className="bar-col" key={item.hour}>
-                <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxHour) * 100)}%` }}>
-                  <span className="bar-value">{item.total}</span>
+                <div className="bar" style={{ height: `${Math.max(6, (Number(item.users_online) / maxHour) * 100)}%` }}>
+                  <span className="bar-value">{item.users_online}</span>
                 </div>
                 <span className="bar-label">{String(item.hour).padStart(2, '0')}h</span>
               </div>

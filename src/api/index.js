@@ -48,7 +48,7 @@ export const reportsApi = {
   byDepartment: (params) => api.get('/reports/by-department', { params }),
   byYear: (params) => api.get('/reports/by-year', { params }),
   mostSearched: (params) => api.get('/reports/most-searched', { params }),
-  peakHours: (params) => api.get('/reports/peak-hours', { params }),
+  usersOnline: (params) => api.get('/reports/users-online', { params }),
 }
 
 // Citations
