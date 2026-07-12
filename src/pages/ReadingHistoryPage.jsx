@@ -54,11 +54,11 @@ export default function ReadingHistoryPage() {
       </div>
 
       <div className="stats-grid-mini" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 24 }}>
-        <div className="stat-mini" style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+        <div className="stat-mini" style={{ background: 'var(--bg-white)', border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--primary-blue)' }}>{stats.total}{stats.total === HISTORY_LIMIT ? '+' : ''}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Recent Items</div>
         </div>
-        <div className="stat-mini" style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+        <div className="stat-mini" style={{ background: 'var(--bg-white)', border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--primary-blue)' }}>{stats.thisWeek}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Viewed This Week</div>
         </div>

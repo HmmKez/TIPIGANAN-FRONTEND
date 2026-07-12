@@ -6,6 +6,7 @@ import { thesesApi } from '../api/theses'
 import { favoritesApi, categoriesApi, usersApi } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import { timeAgo } from '../utils/timeAgo'
+import { boldQuoted } from '../utils/boldQuoted'
 
 const DEPT_ICONS = {
   'CAST': 'fa-flask', 'CCJ': 'fa-balance-scale', 'COE': 'fa-microchip',
@@ -201,7 +202,7 @@ export default function DashboardPage() {
                   <li key={i} className="activity-item">
                     <div className={`activity-icon ${iconClass}`}><i className={`fas ${icon}`}></i></div>
                     <div className="activity-content">
-                      <div className="activity-title" dangerouslySetInnerHTML={{ __html: a.title.replace(/"([^"]+)"/, '"<b>$1</b>"') }} />
+                      <div className="activity-title">{boldQuoted(a.title)}</div>
                       <div className="activity-time">{timeAgo(a.at)}</div>
                     </div>
                   </li>

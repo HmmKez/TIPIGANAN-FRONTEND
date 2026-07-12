@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <title>TIPIGANAN — MDC Online Repository</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tipiganan_theme');
+          if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+          if (localStorage.getItem('tipiganan_reduce_motion') === '1') {
+            document.documentElement.classList.add('reduce-motion');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { Loader, ErrorMessage } from '../components/Loader'
 import { usersApi } from '../api'
 import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
+import { useToast } from '../components/Toast'
+import { avatarUrl } from '../utils/avatar'
+import { boldQuoted } from '../utils/boldQuoted'
 
 function initials(name) {
   if (!name) return '?'
@@ -18,28 +22,22 @@ function roleLabel(role) {
   return 'Student'
 }
 
-// The mockup's Security and Preferences tabs (2FA, login history table,
-// active sessions, reading/notification preferences) have no backing
-// columns or endpoints anywhere in the schema. Rather than build interactive
-// UI that silently does nothing, these tabs show this honest placeholder
-// instead until the backend supports them.
-function ComingSoon({ label }) {
-  return (
-    <div className="panel">
-      <div className="panel-body text-center" style={{ padding: '48px 20px' }}>
-        <i className="fas fa-tools text-primary-blue" style={{ fontSize: 32, marginBottom: 12, display: 'block' }}></i>
-        <p className="text-muted mb-0">{label} isn't available yet — there's no backend support for it currently.</p>
-      </div>
-    </div>
-  )
-}
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light', icon: 'fa-sun' },
+  { value: 'dark', label: 'Dark', icon: 'fa-moon' },
+  { value: 'system', label: 'System', icon: 'fa-desktop' },
+]
 
 export default function ProfilePage() {
-  const { logout } = useAuth()
+  const { logout, updateUser } = useAuth()
+  const { theme, setTheme, reduceMotion, setReduceMotion } = useTheme()
+  const { notify } = useToast()
   const [activeTab, setActiveTab] = useState('personal')
   const [data, setData] = useState(null) // { user, roles, permissions, favorites, history }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef(null)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -72,11 +70,7 @@ export default function ProfilePage() {
     try {
       const res = await usersApi.updateProfile({ name, email })
       setData(prev => ({ ...prev, user: res.data.user }))
-      // NOTE: AuthContext currently has no way to update its cached `user`
-      // after an edit like this, so the sidebar name/avatar (from useAuth())
-      // won't reflect the change until next login. A small `updateUser`
-      // setter added to AuthContext would fix this — flagging rather than
-      // reaching into that file unasked.
+      updateUser(res.data.user)
       setProfileMsg({ type: 'success', text: 'Profile updated successfully.' })
     } catch (err) {
       setProfileMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to update profile.' })
@@ -112,11 +106,52 @@ export default function ProfilePage() {
     }
   }
 
+  const handleAvatarPick = () => avatarInputRef.current?.click()
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // reset so picking the same file again still fires onChange
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      notify('Please choose an image file.', 'error')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      notify('Image must be 2MB or smaller.', 'error')
+      return
+    }
+    setUploadingAvatar(true)
+    try {
+      const res = await usersApi.uploadAvatar(file)
+      setData(prev => ({ ...prev, user: res.data.user }))
+      updateUser(res.data.user)
+      notify('Profile picture updated.', 'success')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to upload profile picture.', 'error')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  const handleAvatarRemove = async () => {
+    setUploadingAvatar(true)
+    try {
+      const res = await usersApi.removeAvatar()
+      setData(prev => ({ ...prev, user: res.data.user }))
+      updateUser(res.data.user)
+      notify('Profile picture removed.', 'success')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to remove profile picture.', 'error')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   if (loading) return <Loader />
   if (error) return <ErrorMessage error={error} onRetry={load} />
   if (!data) return null
 
-  const { user, favorites = [], history = [] } = data
+  const { user, roles = [], permissions = [], favorites = [], history = [] } = data
 
   // Merge real bookmark + view activity into one feed — both come straight
   // from GET /profile, no fabricated entries.
@@ -149,7 +184,7 @@ export default function ProfilePage() {
       </div>
 
       {activeTab === 'personal' && (
-        <div className="panel-grid-2">
+        <div className="panel-grid-2" style={{ alignItems: 'start' }}>
           <div>
             <form className="panel" onSubmit={handleUpdateProfile}>
               <div className="panel-header"><div className="panel-title">Personal Information</div></div>
@@ -182,46 +217,31 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
-
-            <form className="panel" onSubmit={handleChangePassword}>
-              <div className="panel-header"><div className="panel-title">Change Password</div></div>
-              <div className="panel-body">
-                {passwordMsg && (
-                  <div className={`notice-banner ${passwordMsg.type === 'error' ? 'warning' : 'success'}`} style={{ marginBottom: 16 }}>
-                    <i className={`fas ${passwordMsg.type === 'error' ? 'fa-exclamation-triangle' : 'fa-check-circle'}`}></i>
-                    <span>{passwordMsg.text}</span>
-                  </div>
-                )}
-                <div className="form-group">
-                  <label className="form-label">Current Password <span className="req">*</span></label>
-                  <input type="password" className="form-control" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">New Password <span className="req">*</span></label>
-                    <input type="password" className="form-control" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={8} />
-                    <small className="text-muted" style={{ fontSize: 11 }}>Minimum 8 characters.</small>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Confirm New Password <span className="req">*</span></label>
-                    <input type="password" className="form-control" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={8} />
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="submit" className="btn btn-primary" disabled={savingPassword}>
-                  <i className="fas fa-key"></i> {savingPassword ? 'Updating...' : 'Update Password'}
-                </button>
-              </div>
-            </form>
           </div>
 
           <div>
             <div className="panel">
               <div className="panel-body text-center">
-                <div className="user-avatar" style={{ width: 90, height: 90, fontSize: 28, margin: '8px auto 16px', background: 'linear-gradient(135deg,#345FCF,#5A79E5)' }}>
-                  {initials(user.name)}
+                <div className="avatar-upload-wrap">
+                  {avatarUrl(user) ? (
+                    <img src={avatarUrl(user)} alt="" className="user-avatar user-avatar-img" style={{ width: 90, height: 90 }} />
+                  ) : (
+                    <div className="user-avatar" style={{ width: 90, height: 90, fontSize: 28, margin: 0, background: 'linear-gradient(135deg,#345FCF,#5A79E5)' }}>
+                      {initials(user.name)}
+                    </div>
+                  )}
+                  <button type="button" className="avatar-upload-btn" title="Change profile picture"
+                          onClick={handleAvatarPick} disabled={uploadingAvatar}>
+                    <i className={`fas ${uploadingAvatar ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
+                  </button>
+                  <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
                 </div>
+                {avatarUrl(user) && (
+                  <button type="button" onClick={handleAvatarRemove} disabled={uploadingAvatar}
+                          className="text-muted" style={{ background: 'none', border: 'none', fontSize: 11.5, cursor: 'pointer', marginBottom: 8, textDecoration: 'underline' }}>
+                    Remove photo
+                  </button>
+                )}
                 <h3 style={{ fontSize: 17, marginBottom: 4 }}>{user.name}</h3>
                 <div className="text-muted" style={{ fontSize: 13 }}>{user.email}</div>
                 <span className={`badge badge-${user.role === 'student' ? 'student' : user.role === 'staff' ? 'staff' : 'admin'}`} style={{ marginTop: 10, display: 'inline-block' }}>
@@ -253,8 +273,111 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {activeTab === 'security' && <ComingSoon label="Two-factor authentication and login history" />}
-      {activeTab === 'preferences' && <ComingSoon label="Reading and notification preferences" />}
+      {activeTab === 'security' && (
+        <div className="panel-grid-2" style={{ alignItems: 'start' }}>
+          <form className="panel" onSubmit={handleChangePassword}>
+            <div className="panel-header"><div className="panel-title">Change Password</div></div>
+            <div className="panel-body">
+              {passwordMsg && (
+                <div className={`notice-banner ${passwordMsg.type === 'error' ? 'warning' : 'success'}`} style={{ marginBottom: 16 }}>
+                  <i className={`fas ${passwordMsg.type === 'error' ? 'fa-exclamation-triangle' : 'fa-check-circle'}`}></i>
+                  <span>{passwordMsg.text}</span>
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">Current Password <span className="req">*</span></label>
+                <input type="password" className="form-control" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">New Password <span className="req">*</span></label>
+                  <input type="password" className="form-control" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={8}
+                         pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                         title="At least 8 characters, with an uppercase letter, a lowercase letter, and a number." />
+                  <small className="text-muted" style={{ fontSize: 11 }}>At least 8 characters, with uppercase, lowercase, and a number.</small>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Confirm New Password <span className="req">*</span></label>
+                  <input type="password" className="form-control" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={8} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="submit" className="btn btn-primary" disabled={savingPassword}>
+                <i className="fas fa-key"></i> {savingPassword ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+
+          <div>
+            <div className="panel">
+              <div className="panel-header"><div className="panel-title">Roles</div></div>
+              <div className="panel-body" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {roles.length === 0 ? (
+                  <p className="text-muted mb-0">No roles assigned.</p>
+                ) : roles.map(r => (
+                  <span key={r} className={`badge badge-${r === 'student' ? 'student' : r === 'staff' || r === 'super_admin' ? 'staff' : 'admin'}`}>
+                    {roleLabel(r)}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header"><div className="panel-title">Permissions</div></div>
+              <div className="panel-body">
+                {permissions.length === 0 ? (
+                  <p className="text-muted mb-0">
+                    {user.role === 'super_admin' ? 'Super Administrator has full access — no individual grants needed.' : 'No individually granted permissions.'}
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {permissions.map(p => (
+                      <span key={p} className="badge badge-staff">{p.replace(/_/g, ' ')}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'preferences' && (
+        <div className="panel">
+          <div className="panel-header"><div className="panel-title">Appearance</div></div>
+          <div className="panel-body">
+            <div className="form-group">
+              <label className="form-label">Theme</label>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {THEME_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTheme(opt.value)}
+                    className={`btn ${theme === opt.value ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flexDirection: 'column', gap: 6, padding: '14px 24px', minWidth: 96 }}
+                  >
+                    <i className={`fas ${opt.icon}`} style={{ fontSize: 18 }}></i>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <small className="text-muted" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>
+                "System" follows your device's light/dark setting automatically.
+              </small>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Motion</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13 }}>
+                <input type="checkbox" checked={reduceMotion} onChange={e => setReduceMotion(e.target.checked)} />
+                Reduce interface animations and transitions
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'activity' && (
         <div className="panel">
@@ -270,7 +393,7 @@ export default function ProfilePage() {
                   <li key={i} className="activity-item">
                     <div className={`activity-icon ${a.color}`}><i className={`fas ${a.icon}`}></i></div>
                     <div className="activity-content">
-                      <div className="activity-title" dangerouslySetInnerHTML={{ __html: a.title.replace(/"([^"]+)"/, '"<b>$1</b>"') }} />
+                      <div className="activity-title">{boldQuoted(a.title)}</div>
                       <div className="activity-time">{a.time}</div>
                     </div>
                   </li>

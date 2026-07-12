@@ -71,8 +71,19 @@ export function AuthProvider({ children }) {
   const isAdmin = user && (user.role === 'super_admin' || user.role === 'staff' || user.role === 'admin')
   const hasPermission = (name) => user?.role === 'super_admin' || permissions.includes(name)
 
+  // Lets a page that edits the logged-in user's own record (name, email,
+  // avatar) refresh what the sidebar/topbar shows without forcing a re-login
+  // — otherwise this cached copy only ever updates on mount.
+  const updateUser = (patch) => {
+    setUser(prev => {
+      const next = { ...prev, ...patch }
+      localStorage.setItem('tipiganan_user', JSON.stringify(next))
+      return next
+    })
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, permissions, loading, login, register, logout, isAdmin, hasPermission }}>
+    <AuthContext.Provider value={{ user, token, permissions, loading, login, register, logout, isAdmin, hasPermission, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

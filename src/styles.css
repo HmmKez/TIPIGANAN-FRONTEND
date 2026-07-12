@@ -18,6 +18,7 @@
   --bg-white: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-hover: #F0F3FA;
+  --bg-subtle: #FAFBFE;
 
   /* Borders */
   --border-light: #E5E8F0;
@@ -48,6 +49,73 @@
   /* Sidebar */
   --sidebar-width: 240px;
   --header-height: 60px;
+}
+
+/* ============ DARK THEME ============ */
+/* Same token names, dark values — every component below reads colors
+   through these variables, so redefining them here is the whole theme.
+   `data-theme` (set by ThemeContext on <html>) always wins over the OS
+   preference in both directions; the media query only covers "system"
+   mode before a manual choice has been stamped onto the root. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-main: #15171F;
+    --bg-white: #1D2029;
+    --bg-card: #1D2029;
+    --bg-hover: #262A36;
+    --bg-subtle: #1A1D26;
+
+    --border-light: #2B2F3B;
+    --border-medium: #383D4C;
+
+    --text-primary: #E8E9EF;
+    --text-secondary: #B8BAC6;
+    --text-muted: #7C7F8E;
+    --text-label: #9497A5;
+
+    --success-bg: #163527;
+    --warning-bg: #3A2C10;
+    --danger-bg: #3A1E1C;
+    --info-bg: #142B3D;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg-main: #15171F;
+  --bg-white: #1D2029;
+  --bg-card: #1D2029;
+  --bg-hover: #262A36;
+  --bg-subtle: #1A1D26;
+
+  --border-light: #2B2F3B;
+  --border-medium: #383D4C;
+
+  --text-primary: #E8E9EF;
+  --text-secondary: #B8BAC6;
+  --text-muted: #7C7F8E;
+  --text-label: #9497A5;
+
+  --success-bg: #163527;
+  --warning-bg: #3A2C10;
+  --danger-bg: #3A1E1C;
+  --info-bg: #142B3D;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Reduce Motion preference — toggled in Profile > Preferences, applied as a
+   class on <html> so it overrides every transition/animation in the app
+   without having to touch each rule individually. */
+.reduce-motion, .reduce-motion * {
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
 }
 
 /* ============ RESET ============ */
@@ -435,7 +503,46 @@ input, select, textarea { font-family: inherit; }
   color: #fff;
   font-weight: 600;
   font-size: 12px;
+  flex-shrink: 0;
+  overflow: hidden;
 }
+
+/* Sizing intentionally comes from .user-avatar (or an inline override at
+   the call site) — NOT from a percentage here. An <img> with width:100%
+   inside an auto-sized flex/fit-content parent (the topbar chip, e.g.)
+   has no resolvable percentage base, so browsers fall back to the image's
+   native pixel size instead — a 4000x3000 photo blows out the whole
+   layout. Keeping this to object-fit/display only avoids that trap
+   regardless of where the class gets used next. */
+.user-avatar-img {
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-upload-wrap {
+  position: relative;
+  width: fit-content;
+  margin: 8px auto 16px;
+}
+
+.avatar-upload-btn {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary-blue);
+  color: #fff;
+  border: 3px solid var(--bg-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.avatar-upload-btn:hover { background: var(--primary-blue-dark); }
 
 .user-name {
   font-size: 13px;
@@ -557,7 +664,7 @@ input, select, textarea { font-family: inherit; }
 }
 
 .simple-stat {
-  background: #fff;
+  background: var(--bg-white);
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 22px 16px;
@@ -638,7 +745,7 @@ input, select, textarea { font-family: inherit; }
 .btn-primary:hover { background: var(--primary-blue-dark); }
 
 .btn-secondary {
-  background: #fff;
+  background: var(--bg-white);
   color: var(--text-primary);
   border-color: var(--border-medium);
 }
@@ -689,7 +796,7 @@ input, select, textarea { font-family: inherit; }
   font-size: 13px;
   border: 1px solid var(--border-medium);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-white);
   color: var(--text-primary);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -728,7 +835,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   transition: border-color 0.15s, background 0.15s;
   cursor: pointer;
 }
-.file-drop:hover { border-color: var(--primary-blue); background: #fff; }
+.file-drop:hover { border-color: var(--primary-blue); background: var(--bg-white); }
 .file-drop i { font-size: 32px; color: var(--primary-blue); margin-bottom: 8px; }
 .file-drop p { color: var(--text-label); font-size: 13px; }
 .file-drop .file-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
@@ -745,7 +852,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .data-table thead th {
   text-align: left;
   padding: 12px 16px;
-  background: #FAFBFE;
+  background: var(--bg-subtle);
   font-weight: 600;
   color: var(--text-label);
   font-size: 11.5px;
@@ -945,7 +1052,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* ============ BROWSE / SEARCH ============ */
 .search-bar {
-  background: #fff;
+  background: var(--bg-white);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   padding: 16px;
@@ -980,6 +1087,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   border: 1px solid var(--border-medium);
   border-radius: 6px;
   font-size: 13.5px;
+  background: var(--bg-white);
+  color: var(--text-primary);
 }
 
 .filter-row {
@@ -995,7 +1104,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 .thesis-card {
-  background: #fff;
+  background: var(--bg-white);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   overflow: hidden;
@@ -1165,7 +1274,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   width: 600px;
   max-width: 95%;
   min-height: 760px;
-  background: #fff;
+  background: var(--bg-white);
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   padding: 60px 50px;
   position: relative;
@@ -1219,7 +1328,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 .modal-card {
-  background: #fff;
+  background: var(--bg-white);
   width: 100%;
   max-width: 540px;
   border-radius: 12px;
@@ -1302,7 +1411,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   justify-content: center;
   border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-white);
   font-size: 12.5px;
   color: var(--text-primary);
   cursor: pointer;
@@ -1421,7 +1530,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   content: '';
   position: absolute;
   inset: 28px;
-  background: #fff;
+  background: var(--bg-white);
   border-radius: 50%;
 }
 
@@ -1461,7 +1570,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* ============ TOC / PAGE NAV ============ */
 .page-nav-card {
-  background: #fff;
+  background: var(--bg-white);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   padding: 16px;
@@ -1586,7 +1695,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   font-size: 12px;
   color: var(--text-muted);
   border-top: 1px solid var(--border-light);
-  background: #fff;
+  background: var(--bg-white);
 }
 
 /* ============ NOTIFICATION ============ */
@@ -1623,7 +1732,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: #fff;
+  background: var(--bg-white);
   border-left: 4px solid var(--info);
   border-radius: 8px;
   box-shadow: 0 10px 28px rgba(20, 25, 40, .16);
@@ -1708,7 +1817,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .search-hero-box { width: 100%; max-width: 680px; margin-bottom: 20px; }
 .search-input-outer {
   display: flex; align-items: center;
-  background: #fff;
+  background: var(--bg-white);
   border: 1px solid var(--border-medium);
   border-radius: 28px;
   padding: 0 6px 0 20px;
@@ -1750,7 +1859,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 .results-topbar {
   display: flex; align-items: center; gap: 12px;
-  background: #fff; border: 1px solid var(--border-light);
+  background: var(--bg-white); border: 1px solid var(--border-light);
   border-radius: 12px; padding: 10px 16px; margin-bottom: 20px;
   box-shadow: var(--shadow-sm); flex-wrap: wrap;
 }
@@ -1771,7 +1880,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .filter-select {
   border: 1px solid var(--border-medium); border-radius: 8px;
   padding: 7px 12px; font-size: 12.5px; color: var(--text-secondary);
-  background: #fff; outline: none; cursor: pointer;
+  background: var(--bg-white); outline: none; cursor: pointer;
   transition: border-color .15s; font-family: inherit;
 }
 .filter-select:focus { border-color: var(--primary-blue); }
@@ -1782,7 +1891,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .results-main { flex: 1; min-width: 0; }
 
 .filter-panel {
-  background: #fff; border: 1px solid var(--border-light);
+  background: var(--bg-white); border: 1px solid var(--border-light);
   border-radius: 12px; padding: 18px; box-shadow: var(--shadow-sm);
   margin-bottom: 16px;
 }
@@ -1826,7 +1935,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .results-sort select {
   border: 1px solid var(--border-medium); border-radius: 6px;
   padding: 5px 10px; font-size: 12.5px; outline: none;
-  color: var(--text-secondary); background: #fff; cursor: pointer; font-family: inherit;
+  color: var(--text-secondary); background: var(--bg-white); cursor: pointer; font-family: inherit;
 }
 
 /* ===== ACTIVE FILTER CHIPS ===== */
@@ -1845,7 +1954,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* ===== RESULT CARDS ===== */
 .result-card {
-  background: #fff; border: 1px solid var(--border-light);
+  background: var(--bg-white); border: 1px solid var(--border-light);
   border-radius: 12px; padding: 20px 22px; margin-bottom: 12px;
   box-shadow: var(--shadow-sm); transition: box-shadow .2s, transform .2s;
 }
@@ -1913,7 +2022,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .result-stats span { display: flex; align-items: center; gap: 4px; }
 
 /* ===== SKELETON ===== */
-.skeleton-card { background: #fff; border: 1px solid var(--border-light); border-radius: 12px; padding: 20px 22px; margin-bottom: 12px; }
+.skeleton-card { background: var(--bg-white); border: 1px solid var(--border-light); border-radius: 12px; padding: 20px 22px; margin-bottom: 12px; }
 .skel { background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px; }
 @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 .skel-title { height: 20px; width: 70%; margin-bottom: 8px; }
@@ -1925,7 +2034,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* ===== EMPTY STATE ===== */
 .empty-state {
   text-align: center; padding: 60px 20px;
-  background: #fff; border: 1px solid var(--border-light); border-radius: 12px;
+  background: var(--bg-white); border: 1px solid var(--border-light); border-radius: 12px;
 }
 .empty-state i { font-size: 48px; color: var(--border-medium); margin-bottom: 16px; display: block; }
 .empty-state h3 { font-size: 18px; color: var(--text-primary); margin-bottom: 8px; }
@@ -1936,7 +2045,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
    specific to the Browse results layout. */
 .pagination-wrap {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 22px; background: #fff; border: 1px solid var(--border-light);
+  padding: 16px 22px; background: var(--bg-white); border: 1px solid var(--border-light);
   border-radius: 12px; margin-top: 6px; box-shadow: var(--shadow-sm);
 }
 

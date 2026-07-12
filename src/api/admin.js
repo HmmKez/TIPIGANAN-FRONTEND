@@ -13,6 +13,19 @@ export const thesesApi = {
   archive: (id)       => api.patch(`/theses/${id}/archive`),
   updateStatus: (id, status) => api.patch(`/theses/${id}/status`, { status }),
   remove:  (id)       => api.delete(`/theses/${id}`),        // requires delete_documents permission
+  replaceFile: (id, file) => {
+    const formData = new FormData()
+    formData.append('pdf_file', file)
+    return api.post(`/theses/${id}/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  extractMetadata:    (id)            => api.post(`/theses/${id}/extract-metadata`),
+  listFileVersions:   (id)            => api.get(`/theses/${id}/file-versions`),
+  previewFile:        (id)            => api.get(`/theses/${id}/file-preview`, { responseType: 'blob' }),
+  previewFileVersion: (id, versionId) => api.get(`/theses/${id}/file-versions/${versionId}/preview`, { responseType: 'blob' }),
+  restoreFileVersion: (id, versionId) => api.post(`/theses/${id}/file-versions/${versionId}/restore`),
+  deleteFileVersion:  (id, versionId) => api.delete(`/theses/${id}/file-versions/${versionId}`),
 }
 
 // ============ CATEGORIES ============

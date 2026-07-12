@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [retrySeconds, setRetrySeconds] = useState(0)
+  const retryCountdown = useCountdown(retrySeconds)
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -20,16 +23,21 @@ export default function LoginPage() {
       const from = location.state?.from?.pathname
       navigate(from || (isAdmin ? '/admin' : '/dashboard'), { replace: true })
     } catch (err) {
-      // No `response` at all means the request never got an answer back
-      // (server down, wrong port, CORS block) — a completely different
-      // problem from a rejected login, and worth telling apart so it
-      // doesn't look like a wrong password.
-      const msg = !err?.response
-        ? 'Could not reach the server. Check that the backend is running and try again.'
-        : err?.response?.data?.message
-          || err?.response?.data?.errors?.email?.[0]
-          || 'Invalid credentials'
-      setError(msg)
+      if (err?.response?.status === 429) {
+        setRetrySeconds(getRetryAfterSeconds(err))
+      } else {
+        setRetrySeconds(0)
+        // No `response` at all means the request never got an answer back
+        // (server down, wrong port, CORS block) — a completely different
+        // problem from a rejected login, and worth telling apart so it
+        // doesn't look like a wrong password.
+        const msg = !err?.response
+          ? 'Could not reach the server. Check that the backend is running and try again.'
+          : err?.response?.data?.message
+            || err?.response?.data?.errors?.email?.[0]
+            || 'Invalid credentials'
+        setError(msg)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -59,9 +67,14 @@ export default function LoginPage() {
           <h2>Welcome Back</h2>
           <p className="sub">Sign in to access the repository</p>
 
-          {error && (
+          {(retryCountdown > 0 || error) && (
             <div className="notice-banner warning" style={{marginBottom:16}}>
-              <i className="fas fa-exclamation-circle"></i><span>{error}</span>
+              <i className="fas fa-exclamation-circle"></i>
+              <span>
+                {retryCountdown > 0
+                  ? `Too many attempts. Please try again in ${retryCountdown}s.`
+                  : error}
+              </span>
             </div>
           )}
 
@@ -82,9 +95,9 @@ export default function LoginPage() {
               <a href="#">Forgot password?</a>
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || retryCountdown > 0}>
               <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-sign-in-alt'}`}></i>
-              {submitting ? ' Signing in...' : ' Sign In'}
+              {retryCountdown > 0 ? ` Try again in ${retryCountdown}s` : submitting ? ' Signing in...' : ' Sign In'}
             </button>
 
             <div className="auth-foot">

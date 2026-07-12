@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
 
 const DEPARTMENTS = [
   'CAST — College of Arts, Sciences & Teacher Education',
@@ -21,6 +22,8 @@ export default function RegisterPage() {
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [retrySeconds, setRetrySeconds] = useState(0)
+  const retryCountdown = useCountdown(retrySeconds)
   const { register } = useAuth()
   const navigate = useNavigate()
 
@@ -44,15 +47,20 @@ export default function RegisterPage() {
       })
       navigate(userType === 'student' ? '/dashboard' : '/dashboard', { replace: true })
     } catch (err) {
-      let msg
-      if (!err?.response) {
-        msg = 'Could not reach the server. Check that the backend is running and try again.'
+      if (err?.response?.status === 429) {
+        setRetrySeconds(getRetryAfterSeconds(err))
       } else {
-        const errs = err.response.data?.errors
-        msg = errs ? Object.values(errs).flat().join(' ')
-          : err.response.data?.message || 'Registration failed. Please try again.'
+        setRetrySeconds(0)
+        let msg
+        if (!err?.response) {
+          msg = 'Could not reach the server. Check that the backend is running and try again.'
+        } else {
+          const errs = err.response.data?.errors
+          msg = errs ? Object.values(errs).flat().join(' ')
+            : err.response.data?.message || 'Registration failed. Please try again.'
+        }
+        setError(msg)
       }
-      setError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -82,9 +90,14 @@ export default function RegisterPage() {
           <h2>Create Account</h2>
           <p className="sub">Register as a student or teacher</p>
 
-          {error && (
+          {(retryCountdown > 0 || error) && (
             <div className="notice-banner warning" style={{marginBottom:16}}>
-              <i className="fas fa-exclamation-circle"></i><span>{error}</span>
+              <i className="fas fa-exclamation-circle"></i>
+              <span>
+                {retryCountdown > 0
+                  ? `Too many attempts. Please try again in ${retryCountdown}s.`
+                  : error}
+              </span>
             </div>
           )}
 
@@ -149,7 +162,10 @@ export default function RegisterPage() {
               <div className="form-group">
                 <label className="form-label">Password <span className="req">*</span></label>
                 <input type="password" className="form-control" minLength={8}
+                       pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                       title="At least 8 characters, with an uppercase letter, a lowercase letter, and a number."
                        value={form.password} onChange={e => update('password', e.target.value)} required />
+                <small className="text-muted" style={{ fontSize: 11 }}>At least 8 characters, with uppercase, lowercase, and a number.</small>
               </div>
               <div className="form-group">
                 <label className="form-label">Confirm Password <span className="req">*</span></label>
@@ -166,9 +182,9 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || retryCountdown > 0}>
               <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-user-plus'}`}></i>
-              {submitting ? ' Creating account...' : ' Create Account'}
+              {retryCountdown > 0 ? ` Try again in ${retryCountdown}s` : submitting ? ' Creating account...' : ' Create Account'}
             </button>
 
             <div className="auth-foot">

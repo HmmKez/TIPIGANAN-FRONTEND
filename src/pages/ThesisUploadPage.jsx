@@ -170,17 +170,17 @@ export default function ThesisUploadPage() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Abstract <span className="req">*</span></label>
-                  <textarea className="form-control" rows="6" required
+                  <label className="form-label">Abstract</label>
+                  <textarea className="form-control" rows="6"
                             value={form.abstract} onChange={e => update('abstract', e.target.value)}
-                            placeholder="Enter the abstract…"></textarea>
+                            placeholder="Enter the abstract, or leave blank to pull it from the PDF automatically…"></textarea>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Keywords</label>
                   <input type="text" className="form-control"
                          value={form.keywords} onChange={e => update('keywords', e.target.value)}
-                         placeholder="e.g. IoT, Smart Classroom, ESP32" />
-                  <small className="text-muted" style={{ fontSize: 11 }}>Separate with commas</small>
+                         placeholder="e.g. IoT, Smart Classroom, ESP32 — or leave blank to pull from the PDF" />
+                  <small className="text-muted" style={{ fontSize: 11 }}>Separate with commas. Left blank, both fields are filled in from the PDF's own Abstract/Keywords section after upload.</small>
                 </div>
               </div>
             </div>

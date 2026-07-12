@@ -4,6 +4,7 @@ import { usersApi, permissionsApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
+import { avatarUrl } from '../utils/avatar'
 
 const emptyCreate = { name: '', email: '', password: '', role: 'staff' }
 
@@ -312,9 +313,13 @@ export default function UserManagementPage() {
                 <tr key={u.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="user-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>
-                        {initials(u.name)}
-                      </div>
+                      {avatarUrl(u) ? (
+                        <img src={avatarUrl(u)} alt="" className="user-avatar user-avatar-img" style={{ width: 36, height: 36 }} />
+                      ) : (
+                        <div className="user-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>
+                          {initials(u.name)}
+                        </div>
+                      )}
                       <div>
                         <b>{u.name}</b>{me?.id === u.id && <span className="text-muted" style={{ fontSize: 11 }}> (you)</span>}<br />
                         <small className="text-muted">{u.email}</small>
@@ -425,9 +430,11 @@ export default function UserManagementPage() {
                   <div className="form-group">
                     <label className="form-label">Password <span className="req">*</span></label>
                     <input type="password" className="form-control" required minLength="8"
+                           pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                           title="At least 8 characters, with an uppercase letter, a lowercase letter, and a number."
                            value={createForm.password}
                            onChange={e => setCreateForm({ ...createForm, password: e.target.value })} />
-                    <small className="text-muted" style={{ fontSize: 11 }}>Minimum 8 characters</small>
+                    <small className="text-muted" style={{ fontSize: 11 }}>At least 8 characters, with uppercase, lowercase, and a number.</small>
                   </div>
                 </div>
               </div>
@@ -457,8 +464,11 @@ export default function UserManagementPage() {
                 <div className="form-group">
                   <label className="form-label">New Password <span className="req">*</span></label>
                   <input type="password" className="form-control" required minLength="8"
+                         pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                         title="At least 8 characters, with an uppercase letter, a lowercase letter, and a number."
                          value={resetForm.password}
                          onChange={e => setResetForm({ ...resetForm, password: e.target.value })} />
+                  <small className="text-muted" style={{ fontSize: 11 }}>At least 8 characters, with uppercase, lowercase, and a number.</small>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Confirm Password <span className="req">*</span></label>

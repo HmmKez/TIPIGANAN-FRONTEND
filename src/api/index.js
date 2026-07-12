@@ -25,6 +25,14 @@ export const searchApi = {
 export const usersApi = {
   profile: () => api.get('/profile'),
   updateProfile: (data) => api.put('/profile', data),
+  uploadAvatar: (file) => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    return api.post('/profile/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  removeAvatar: () => api.delete('/profile/avatar'),
   list: (params) => api.get('/users', { params }),
   get: (id) => api.get(`/users/${id}`),
   create: (data) => api.post('/users', data),

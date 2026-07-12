@@ -217,8 +217,6 @@ export default function PdfViewer() {
         {/* MAIN CANVAS */}
         <div ref={mainRef} style={{ ...S.canvas, ...(blur ? S.canvasBlur : {}) }}
           onContextMenu={e => e.preventDefault()}>
-          <Watermark thesisId={thesisId} />
-
           {error && (
             <div style={S.errorBox}>
               <i className="fas fa-exclamation-circle" style={{ fontSize: 28, color: '#FF6B5E', marginBottom: 10 }} />
@@ -248,6 +246,13 @@ export default function PdfViewer() {
                     renderTextLayer={false}
                     onRenderSuccess={() => { if (i === 0) setPage(1) }}
                   />
+                  {/* Watermarked per page, not once over the whole scroll
+                      container — the container's own box is only as tall as
+                      the viewport, so a single absolutely-positioned overlay
+                      only ever covers whatever's scrolled to the top (page 1)
+                      and scrolls away with it. Every page needs its own mark
+                      so a screenshot of any single page still shows it. */}
+                  <Watermark thesisId={thesisId} />
                 </div>
               ))}
             </Document>
@@ -321,7 +326,11 @@ const S = {
   },
   thumbWrap: {
     cursor: 'pointer', borderRadius: 5, overflow: 'hidden',
-    border: '2px solid transparent', transition: 'border-color 0.15s',
+    // Longhand (not the `border` shorthand) so the active-state and hover
+    // handlers can toggle borderColor alone without React warning about
+    // removing a longhand property while a conflicting shorthand is set.
+    borderWidth: 2, borderStyle: 'solid', borderColor: 'transparent',
+    transition: 'border-color 0.15s',
     position: 'relative',
   },
   thumbActive: { borderColor: 'var(--primary-blue-light)', boxShadow: '0 0 0 2px rgba(90,121,229,0.35)' },
@@ -339,6 +348,7 @@ const S = {
   pageWrap: {
     marginBottom: 16, boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
     background: '#fff', display: 'inline-block', borderRadius: 2,
+    position: 'relative',
   },
   errorBox: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',

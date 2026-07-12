@@ -243,17 +243,17 @@ export default function ThesisDetail() {
                           overflow:hidden instead of getting clipped at the panel edge. */}
                       <div style={{
                         position: 'fixed', top: citeMenuPos.top, left: citeMenuPos.left, minWidth: 170,
-                        background: '#fff', border: '1px solid var(--border-light)', borderRadius: 8,
+                        background: 'var(--bg-white)', border: '1px solid var(--border-light)', borderRadius: 8,
                         boxShadow: '0 8px 24px rgba(0,0,0,.14)', zIndex: 61, overflow: 'hidden',
                       }}>
                         <button type="button" onClick={() => handleCite('APA')}
-                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontFamily: 'inherit' }}
                                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                 onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                           APA Style
                         </button>
                         <button type="button" onClick={() => handleCite('MLA')}
-                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontFamily: 'inherit' }}
                                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                 onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                           MLA Style

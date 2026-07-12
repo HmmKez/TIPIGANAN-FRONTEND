@@ -129,12 +129,12 @@ export default function ReportsPage() {
                 <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setExportMenuOpen(false)}></div>
                 <div style={{
                   position: 'absolute', top: '100%', right: 0, marginTop: 4, minWidth: 220,
-                  background: '#fff', border: '1px solid var(--border-light)', borderRadius: 8,
+                  background: 'var(--bg-white)', border: '1px solid var(--border-light)', borderRadius: 8,
                   boxShadow: '0 8px 24px rgba(0,0,0,.14)', zIndex: 61, overflow: 'hidden',
                 }}>
                   {REPORT_TYPES.map(rt => (
                     <button key={rt.value} type="button" onClick={() => downloadReport(rt.value, rt.label)}
-                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontFamily: 'inherit' }}
                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                             onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                       {rt.label}

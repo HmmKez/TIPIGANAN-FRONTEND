@@ -3,6 +3,8 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { usersApi } from '../api'
 import { timeAgo } from '../utils/timeAgo'
+import { avatarUrl } from '../utils/avatar'
+import { boldQuoted } from '../utils/boldQuoted'
 import ConfirmModal from './ConfirmModal'
 
 function getMenu(isAdmin, isGuest) {
@@ -183,7 +185,7 @@ export default function Layout({ children }) {
                     <>
                       <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setNotifOpen(false)}></div>
                       <div style={{
-                        position: 'absolute', right: 0, top: 44, width: 300, background: '#fff',
+                        position: 'absolute', right: 0, top: 44, width: 300, background: 'var(--bg-white)',
                         border: '1px solid var(--border-light)', borderRadius: 10,
                         boxShadow: 'var(--shadow-md, 0 8px 24px rgba(0,0,0,.12))', zIndex: 61, padding: '10px 0',
                       }}>
@@ -210,8 +212,9 @@ export default function Layout({ children }) {
                                   <i className={`fas ${a.icon}`}></i>
                                 </div>
                                 <div style={{ minWidth: 0 }}>
-                                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.4 }}
-                                       dangerouslySetInnerHTML={{ __html: a.title.replace(/"([^"]+)"/, '"<b>$1</b>"') }} />
+                                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                                    {boldQuoted(a.title)}
+                                  </div>
                                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{timeAgo(a.time)}</div>
                                 </div>
                               </li>
@@ -223,7 +226,11 @@ export default function Layout({ children }) {
                   )}
                 </div>
                 <Link to="/profile" className="user-chip">
-                  <div className="user-avatar">{initials(user?.name)}</div>
+                  {avatarUrl(user) ? (
+                    <img src={avatarUrl(user)} alt="" className="user-avatar user-avatar-img" />
+                  ) : (
+                    <div className="user-avatar">{initials(user?.name)}</div>
+                  )}
                   <div>
                     <div className="user-name">{user?.name || 'User'}</div>
                     <div className="user-role">{roleLabel}</div>

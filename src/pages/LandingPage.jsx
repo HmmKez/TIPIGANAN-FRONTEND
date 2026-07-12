@@ -238,7 +238,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="lp-section" id="departments" style={{background:'#fff'}}>
+        <section className="lp-section" id="departments" style={{background:'var(--bg-white)'}}>
           <div className="lp-container">
             <h2>Browse by Department</h2>
             <p className="subtitle">Explore collections curated by each college of Mater Dei.</p>

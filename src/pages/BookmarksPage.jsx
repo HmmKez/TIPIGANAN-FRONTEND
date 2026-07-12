@@ -33,7 +33,7 @@ function getBookmarkProgress(thesisId) {
 
 const pageStyles = `
   .bm-action-bar {
-    background: #fff; border: 1px solid var(--border-light); border-radius: 12px;
+    background: var(--bg-white); border: 1px solid var(--border-light); border-radius: 12px;
     padding: 12px 20px; margin-bottom: 20px; display: flex; align-items: center;
     justify-content: space-between; flex-wrap: wrap; gap: 16px;
   }
@@ -42,20 +42,21 @@ const pageStyles = `
   .bm-action-btn {
     display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px;
     font-size: 12.5px; font-weight: 500; cursor: pointer; transition: all .15s;
-    border: 1px solid var(--border-medium); background: #fff; color: var(--text-secondary); font-family: inherit;
+    border: 1px solid var(--border-medium); background: var(--bg-white); color: var(--text-secondary); font-family: inherit;
   }
   .bm-action-btn:hover { background: var(--bg-hover); }
   .bm-action-btn.primary { background: var(--primary-blue); border-color: var(--primary-blue); color: #fff; }
   .bm-action-btn.primary:hover { background: var(--primary-blue-dark); }
-  .bm-action-btn.danger { border-color: #FFCDD2; background: #FFEBEE; color: #C62828; }
-  .bm-action-btn.danger:hover { background: #FFCDD2; }
-  .bm-action-btn.warning { border-color: #FFE0B2; background: #FFF3E0; color: #E65100; }
-  .bm-action-btn.warning:hover { background: #FFE0B2; }
+  .bm-action-btn.danger { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+  .bm-action-btn.danger:hover { background: var(--danger); color: #fff; }
+  .bm-action-btn.warning { border-color: var(--warning); background: var(--warning-bg); color: var(--warning); }
+  .bm-action-btn.warning:hover { background: var(--warning); color: #fff; }
   .bm-search-wrap { position: relative; flex: 1; max-width: 320px; }
   .bm-search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; }
   .bm-search-wrap input {
     width: 100%; padding: 8px 12px 8px 36px; border: 1px solid var(--border-medium);
     border-radius: 10px; font-size: 13px; outline: none; font-family: inherit;
+    background: var(--bg-white); color: var(--text-primary);
   }
   .bm-search-wrap input:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(52,95,207,.1); }
   .bm-reading-progress { height: 3px; background: var(--border-light); border-radius: 2px; overflow: hidden; margin-top: 8px; }

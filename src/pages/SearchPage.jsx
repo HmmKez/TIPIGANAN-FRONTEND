@@ -79,7 +79,7 @@ export default function SearchPage() {
           </div>
           <div style={{width:'100%', maxWidth:680, marginBottom:20}}>
             <form onSubmit={(e) => { e.preventDefault(); runSearch() }}
-                  style={{display:'flex', alignItems:'center', background:'#fff', border:'1px solid var(--border-medium)',
+                  style={{display:'flex', alignItems:'center', background:'var(--bg-white)', border:'1px solid var(--border-medium)',
                           borderRadius:28, padding:'0 6px 0 20px', boxShadow:'var(--shadow-md)'}}>
               <i className="fas fa-search" style={{color:'var(--text-muted)', fontSize:15, marginRight:12}}></i>
               <input type="text" value={inputQuery} onChange={e => setInputQuery(e.target.value)}
@@ -94,7 +94,7 @@ export default function SearchPage() {
             <div style={{display:'flex', flexWrap:'wrap', gap:8, justifyContent:'center', marginTop:14}}>
               {QUICK_TAGS.map(tag => (
                 <span key={tag} onClick={() => runSearch(tag)}
-                      style={{background:'#fff', border:'1px solid var(--border-medium)', borderRadius:16,
+                      style={{background:'var(--bg-white)', border:'1px solid var(--border-medium)', borderRadius:16,
                                 padding:'5px 14px', fontSize:12, color:'var(--text-secondary)', cursor:'pointer'}}>
                   {tag}
                 </span>
@@ -120,12 +120,12 @@ export default function SearchPage() {
             </form>
             <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
               <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
-                      style={{border:'1px solid var(--border-medium)', borderRadius:8, padding:'7px 12px', fontSize:12.5, background:'#fff'}}>
+                      style={{border:'1px solid var(--border-medium)', borderRadius:8, padding:'7px 12px', fontSize:12.5, background:'var(--bg-white)'}}>
                 <option value="">All Departments</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.code || c.name}</option>)}
               </select>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                      style={{border:'1px solid var(--border-medium)', borderRadius:8, padding:'7px 12px', fontSize:12.5, background:'#fff'}}>
+                      style={{border:'1px solid var(--border-medium)', borderRadius:8, padding:'7px 12px', fontSize:12.5, background:'var(--bg-white)'}}>
                 <option value="relevance">Sort: Relevance</option>
                 <option value="recent">Newest</option>
                 <option value="views">Most Viewed</option>
@@ -135,7 +135,7 @@ export default function SearchPage() {
 
           <div className="results-layout">
             <aside className="results-sidebar-panel">
-              <div style={{background:'#fff', border:'1px solid var(--border-light)', borderRadius:12, padding:18}}>
+              <div style={{background:'var(--bg-white)', border:'1px solid var(--border-light)', borderRadius:12, padding:18}}>
                 <div style={{fontSize:12, fontWeight:600, textTransform:'uppercase', color:'var(--text-muted)', marginBottom:12, letterSpacing:0.8}}>
                   Refine Results
                 </div>
