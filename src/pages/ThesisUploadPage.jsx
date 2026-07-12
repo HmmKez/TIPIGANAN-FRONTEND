@@ -103,7 +103,7 @@ export default function ThesisUploadPage() {
 
       <div className="notice-banner">
         <i className="fas fa-info-circle"></i>
-        <span>Files must be in PDF format. Max size 50 MB. The backend runs OCR and validation automatically.</span>
+        <span>Files must be in PDF format. Max size 150 MB. The backend runs OCR and validation automatically.</span>
       </div>
 
       {error && (
@@ -225,7 +225,7 @@ export default function ThesisUploadPage() {
                     <>
                       <i className="fas fa-cloud-upload-alt"></i>
                       <p>Click to browse or drag &amp; drop your PDF</p>
-                      <p className="file-hint">PDF only · Max 50 MB</p>
+                      <p className="file-hint">PDF only · Max 150 MB</p>
                     </>
                   )}
                 </label>
