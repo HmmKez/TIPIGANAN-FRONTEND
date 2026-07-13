@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader'
 import { Loader, EmptyState, ErrorMessage } from '../components/Loader'
 import { favoritesApi } from '../api'
 import { apiOrigin } from '../api/axios'
+import { categoryCode, categoryName } from '../utils/category'
 
 const DEPT_ICONS = {
   'CAST': 'fa-flask', 'CCJ': 'fa-balance-scale', 'COE': 'fa-microchip',
@@ -99,11 +100,13 @@ export default function BookmarksPage() {
   }, [])
 
   // Departments derived from actual data, not hardcoded — mockup hardcodes
-  // COE/CAST/CON/CABM-B, but real category names vary per install.
+  // COE/CAST/CON/CABM-B, but real categories vary per install. Grouped by the
+  // category's CODE so the tabs are short and uniform, rather than a mix of
+  // "CAST" and "Institutional Publications".
   const deptCounts = useMemo(() => {
     const counts = {}
     favorites.forEach(f => {
-      const code = f.thesis?.category?.name || 'Uncategorized'
+      const code = f.thesis?.category ? categoryCode(f.thesis.category) : 'Uncategorized'
       counts[code] = (counts[code] || 0) + 1
     })
     return counts
@@ -112,7 +115,10 @@ export default function BookmarksPage() {
   const filtered = useMemo(() => {
     let list = [...favorites]
     if (filterDept !== 'all') {
-      list = list.filter(f => (f.thesis?.category?.name || 'Uncategorized') === filterDept)
+      // Must key the SAME way deptCounts does, or the tabs select nothing.
+      list = list.filter(f =>
+        (f.thesis?.category ? categoryCode(f.thesis.category) : 'Uncategorized') === filterDept
+      )
     }
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -275,7 +281,8 @@ export default function BookmarksPage() {
             // it up on a 404), so render a "no longer available" placeholder
             // instead of a card full of blanks.
             const isDeleted = !f.thesis
-            const code = t.category?.name || 'Uncategorized'
+            const code = t.category ? categoryCode(t.category) : 'Uncategorized'
+            const fullName = t.category ? categoryName(t.category) : 'Uncategorized'
             const progress = getBookmarkProgress(t.id)
             const coverImage = t.cover_image_path || t.category?.cover_image_path
             return (
@@ -289,7 +296,7 @@ export default function BookmarksPage() {
                   ) : (
                     <i className={`fas ${DEPT_ICONS[code] || 'fa-file-alt'}`}></i>
                   )}
-                  {!isDeleted && <span className="dept-tag">{code}</span>}
+                  {!isDeleted && <span className="dept-tag" title={fullName}>{code}</span>}
                   {!isDeleted && <span className="year-tag">{t.year_published || '—'}</span>}
                 </div>
                 <div className="thesis-info">

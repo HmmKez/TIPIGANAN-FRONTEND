@@ -5,7 +5,7 @@ import { apiOrigin } from '../api/axios'
 import { useToast } from '../components/Toast'
 import ConfirmModal from '../components/ConfirmModal'
 
-const emptyForm = { name: '' }
+const emptyForm = { code: '', name: '' }
 
 export default function CategoryManagementPage() {
   const { notify } = useToast()
@@ -34,7 +34,7 @@ export default function CategoryManagementPage() {
 
   const open = (mode, data = null) => {
     setModal({ mode, data })
-    setForm(data ? { name: data.name } : emptyForm)
+    setForm(data ? { code: data.code || '', name: data.name } : emptyForm)
     setCoverFile(null)
     setCoverPreview(data?.cover_image_path ? `${apiOrigin}/storage/${data.cover_image_path}` : null)
   }
@@ -49,7 +49,7 @@ export default function CategoryManagementPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = { name: form.name }
+      const payload = { code: form.code.trim().toUpperCase(), name: form.name.trim() }
       let category
       if (modal.mode === 'create') {
         category = (await categoriesApi.create(payload)).data
@@ -132,6 +132,7 @@ export default function CategoryManagementPage() {
             <thead>
               <tr>
                 <th>Cover</th>
+                <th>Code</th>
                 <th>Name</th>
                 <th>Total Items</th>
                 <th>Created</th>
@@ -139,9 +140,9 @@ export default function CategoryManagementPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan="5" className="text-muted" style={{ padding: 30, textAlign: 'center' }}>Loading…</td></tr>}
+              {loading && <tr><td colSpan="6" className="text-muted" style={{ padding: 30, textAlign: 'center' }}>Loading…</td></tr>}
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan="5" className="text-muted" style={{ padding: 30, textAlign: 'center' }}>No categories found.</td></tr>
+                <tr><td colSpan="6" className="text-muted" style={{ padding: 30, textAlign: 'center' }}>No categories found.</td></tr>
               )}
               {filtered.map(c => (
                 <tr key={c.id}>
@@ -155,6 +156,7 @@ export default function CategoryManagementPage() {
                       </div>
                     )}
                   </td>
+                  <td><span className="badge badge-info">{c.code || '—'}</span></td>
                   <td><b>{c.name}</b></td>
                   <td>{c.theses_count ?? '—'}</td>
                   <td>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
@@ -186,6 +188,23 @@ export default function CategoryManagementPage() {
             </div>
             <form onSubmit={save}>
               <div className="modal-body">
+                {/* The short code is typed, never derived. The app used to guess
+                    it from the name (first four letters), which duplicated
+                    acronyms ("CAST — CAST"), produced stubs ("INST"), and — worst
+                    — collided: CABM-B and CABM-H both became "CABM". */}
+                <div className="form-group">
+                  <label className="form-label">Code <span className="req">*</span></label>
+                  <p className="text-muted" style={{ fontSize: 11.5, marginBottom: 8 }}>
+                    The short label shown on item tags and breadcrumbs. Must be unique.
+                  </p>
+                  <input type="text" className="form-control" required maxLength={16}
+                         pattern="[A-Za-z0-9\-]+"
+                         title="Letters, numbers and hyphens only"
+                         value={form.code}
+                         onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                         placeholder="e.g. COE, CABM-B, IP"
+                         style={{ textTransform: 'uppercase' }} />
+                </div>
                 <div className="form-group">
                   <label className="form-label">Name <span className="req">*</span></label>
                   <input type="text" className="form-control" required

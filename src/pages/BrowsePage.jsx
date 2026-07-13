@@ -2,17 +2,27 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api, { apiOrigin } from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
+import { categoryCode, categoryName } from '../utils/category'
 
 // Dept → icon + cover color (matches the mockup styling)
+// Cosmetic only — icon and cover colour, keyed on a category's CODE. A category
+// with no entry here simply gets the neutral default, so this never needs to be
+// exhaustive and a new category is never broken by being absent from it.
+//
+// It previously keyed on codes invented from the name, so 'SPC' and 'GS' matched
+// nothing that actually existed and three categories had no entry at all.
 const DEPT_META = {
-  'CAST':   { icon: 'fa-flask',         cover: 'purple' },
-  'COE':    { icon: 'fa-microchip',     cover: 'blue'   },
-  'CON':    { icon: 'fa-heartbeat',     cover: 'green'  },
-  'CCJ':    { icon: 'fa-balance-scale', cover: 'orange' },
-  'CABM-B': { icon: 'fa-chart-line',    cover: 'red'    },
-  'CABM-H': { icon: 'fa-hotel',         cover: 'sky'    },
-  'GS':     { icon: 'fa-graduation-cap',cover: 'teal'   },
-  'SPC':    { icon: 'fa-star',          cover: 'purple' },
+  'CAST':   { icon: 'fa-flask',          cover: 'purple' },
+  'COE':    { icon: 'fa-microchip',      cover: 'blue'   },
+  'CON':    { icon: 'fa-heartbeat',      cover: 'green'  },
+  'CCJ':    { icon: 'fa-balance-scale',  cover: 'orange' },
+  'CABM-B': { icon: 'fa-chart-line',     cover: 'red'    },
+  'CABM-H': { icon: 'fa-hotel',          cover: 'sky'    },
+  'GS':     { icon: 'fa-graduation-cap', cover: 'teal'   },
+  'SC':     { icon: 'fa-star',           cover: 'purple' },
+  'SBC':    { icon: 'fa-landmark',       cover: 'orange' },
+  'IP':     { icon: 'fa-building',       cover: 'blue'   },
+  'FR':     { icon: 'fa-microscope',     cover: 'green'  },
 }
 
 const QUICK_TAGS = [
@@ -433,9 +443,14 @@ export default function BrowsePage() {
 
               {/* Result cards */}
               {!loading && !error && displayItems.map(t => {
-                const cat = t.category?.name || ''
-                const deptCode = cat.split(/[\s—-]/)[0] || cat.slice(0, 4).toUpperCase()
-                const meta = DEPT_META[deptCode] || DEPT_META[cat] || { icon: 'fa-file-alt', cover: '' }
+                // Keyed on the category's real code. The old heuristic split the
+                // NAME on whitespace/dashes, so "CABM-B" and "CABM-H" both keyed
+                // as "CABM" and shared one icon and colour — and any multi-word
+                // category ("Institutional Publications") keyed as its first word
+                // and matched nothing at all.
+                const cat = categoryName(t.category)
+                const deptCode = categoryCode(t.category)
+                const meta = DEPT_META[deptCode] || { icon: 'fa-file-alt', cover: '' }
                 const kws = parseKeywords(t.keywords)
 
                 return (
@@ -461,8 +476,14 @@ export default function BrowsePage() {
                           <span>{t.authors}</span>
                         </div>
                         <div className="result-meta-row">
-                          {cat && <span className="result-dept-badge">{cat}</span>}
-                          {cat && <span className="dot"></span>}
+                          {/* The short code, so every card's tag is the same shape.
+                              It used to be the raw name, which is why some tags
+                              read "CAST" and others "INSTITUTIONAL PUBLICATIONS".
+                              Full name on hover, since IP/SBC aren't self-evident. */}
+                          {deptCode && (
+                            <span className="result-dept-badge" title={cat}>{deptCode}</span>
+                          )}
+                          {deptCode && <span className="dot"></span>}
                           {t.year_published && (
                             <>
                               <span className="result-year">

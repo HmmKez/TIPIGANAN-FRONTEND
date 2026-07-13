@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api, { apiOrigin } from '../api/axios'
 import { favoritesApi } from '../api'
 import { useToast } from '../components/Toast'
+import { categoryCode, categoryName, categoryLabel } from '../utils/category'
 const isAuthenticated = () => !!localStorage.getItem('tipiganan_token')
 
 // Thesis Detail page — the React port of the HTML mockup, wired to the
@@ -145,8 +146,9 @@ export default function ThesisDetail() {
 
   const { thesis, related, view_count, bookmark_count, bookmarked } = data
   const keywords = (thesis.keywords || '').split(',').map(k => k.trim()).filter(Boolean)
-  const deptName = thesis.category?.name || 'Unknown'
-  const deptCode = deptName.match(/\(([A-Z]+)\)/)?.[1] || deptName.slice(0, 4).toUpperCase()
+  // Read the authored code and name — never derive one from the other.
+  const deptName = categoryName(thesis.category)
+  const deptCode = categoryCode(thesis.category)
 
   return (
     <>
@@ -191,8 +193,10 @@ export default function ThesisDetail() {
             </div>
 
             <div className="detail-meta">
+              {/* categoryLabel collapses to just the name when the code and the
+                  name are the same word, instead of rendering "CAST — CAST". */}
               <span className="badge badge-info" style={{ marginBottom: 10 }}>
-                {deptCode} — {deptName}
+                {categoryLabel(thesis.category)}
               </span>
               <h2>{thesis.title}</h2>
               <div className="authors">By <b>{thesis.authors}</b></div>
@@ -282,7 +286,10 @@ export default function ThesisDetail() {
           <div className="panel-body">
             <div className="thesis-grid">
               {related.map(r => {
-                const rDept = r.category?.name?.match(/\(([A-Z]+)\)/)?.[1] || deptCode
+                // Its OWN code. This used to fall back to the code of the thesis
+                // being viewed, so a related item from another collection was
+                // tagged with the wrong department entirely.
+                const rDept = categoryCode(r.category)
                 return (
                   <Link key={r.id} to={`/theses/${r.id}`} className="thesis-card">
                     <div className="thesis-cover">
