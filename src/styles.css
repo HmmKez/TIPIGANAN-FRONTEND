@@ -134,12 +134,24 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+/* The logo is a LANDSCAPE badge (1188x986: round seal on top, lotus + book +
+   "MDC LIBRARY SYSTEM" wordmark below) — it is not a round image. Masking it
+   with border-radius alone would slice off the outer petals and both ends of
+   the wordmark. To get a round mark without losing artwork, the circle is the
+   white *plate* and the logo is inset far enough to fit wholly inside it:
+   at this aspect the image must be <= 77% of the diameter, i.e. ~11.5% padding
+   per side. The plate is white because the wordmark is black and the sidebar,
+   login panel, and PDF toolbar are all dark. Same trick in #login-logo,
+   .lp-logo-img, and PdfViewer's brandLogo — keep the padding ratio if you
+   resize any of them. */
 .sidebar-mdc-logo {
   width: 38px;
   height: 38px;
+  padding: 5px;
   object-fit: contain;
   flex-shrink: 0;
   border-radius: 50%;
+  background: #fff;
 }
 /* ============ CONTINUE READING CARDS ============ */
 .cr-card {
@@ -313,13 +325,20 @@ input, select, textarea { font-family: inherit; }
   color: var(--text-muted);
 }
 
+/* Now an <a> (it links to the landing page), so it needs the anchor defaults
+   reset — inheriting the sidebar's white text rather than the link colour. */
 .sidebar-brand {
   padding: 18px 20px;
   display: flex;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s;
 }
+
+.sidebar-brand:hover { background: rgba(255, 255, 255, 0.07); }
 
 .brand-logo {
   width: 38px;
@@ -452,6 +471,102 @@ input, select, textarea { font-family: inherit; }
   font-weight: 500;
 }
 
+/* Super Admin only: the badge becomes a control that opens the term editor.
+   Everyone else keeps the plain, non-interactive badge above. */
+.term-edit-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.term-badge-editable {
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.term-badge-editable:hover,
+.term-badge-editable[aria-expanded="true"] {
+  border-color: var(--primary-blue);
+}
+
+.term-edit-icon {
+  font-size: 9px;
+  opacity: 0.55;
+}
+
+.term-badge-editable:hover .term-edit-icon { opacity: 1; }
+
+.term-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;              /* above .topbar's z-index: 50 */
+  width: 250px;
+  padding: 14px;
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  cursor: default;
+}
+
+.term-popover-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.term-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-label);
+}
+
+.term-field select,
+.term-field input {
+  padding: 6px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+}
+
+.term-field select:focus,
+.term-field input:focus {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: -1px;
+}
+
+.term-preview {
+  font-size: 11.5px;
+  color: var(--text-label);
+}
+
+.term-preview b { color: var(--primary-blue); }
+.term-preview-empty { font-style: italic; }
+
+.term-error {
+  font-size: 11.5px;
+  color: var(--danger, #c0392b);
+}
+
+.term-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
@@ -471,6 +586,37 @@ input, select, textarea { font-family: inherit; }
 }
 
 .topbar-icon:hover { background: var(--bg-hover); }
+
+/* "Back to the landing page" — the only route out of the app shell. */
+.topbar-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.topbar-home:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+  background: var(--bg-hover);
+}
+
+/* On phones the topbar is crowded (menu toggle + actions + avatar), so the
+   label drops and the arrow alone carries it. The sidebar brand is still a
+   full-size link home either way. */
+@media (max-width: 768px) {
+  .topbar-home { padding: 7px 10px; }
+  .topbar-home span { display: none; }
+}
 
 .notif-dot {
   position: absolute;
@@ -937,14 +1083,16 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 #login-logo {
-  width: 130px;
-  height: 130px;
+  width: 140px;
+  height: 140px;
   object-fit: contain;
   display: block;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  /* Opaque white, not the old translucent tint — .auth-left is a blue gradient
+     and the logo's wordmark is black, so it needs a solid light plate to read. */
+  background: #fff;
   border: 1.5px solid rgba(255, 255, 255, 0.25);
-  padding: 14px;
+  padding: 16px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
 

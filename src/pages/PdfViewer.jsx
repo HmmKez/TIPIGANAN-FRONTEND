@@ -3,10 +3,12 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Document, Page, pdfjs } from 'react-pdf'
 import api from '../api/axios'
 import Watermark from '../components/Watermark'
+// The toolbar brand mark only. The watermark over the page is a separate
+// component (Watermark.jsx) and deliberately still shows the old seal.
+import { MDC_LOGO } from '../config/branding'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
-const MDC_LOGO = 'https://sis.materdeicollege.com/img/MDC-Logo-clipped.png'
 const HOVER_BG = 'rgba(255,255,255,0.12)'
 
 // Inline style objects can't express :hover, so toolbar controls toggle
@@ -288,10 +290,13 @@ const S = {
   toolLeft:   { display: 'flex', alignItems: 'center', gap: 2, flex: 1 },
   toolCenter: { display: 'flex', alignItems: 'center', gap: 4 },
   toolRight:  { display: 'flex', alignItems: 'center', gap: 2, flex: 1, justifyContent: 'flex-end' },
+  // White plate + ~11.5% inset so the landscape badge sits wholly inside the
+  // circle instead of being clipped by it; the toolbar is #1F2230 and the
+  // logo's wordmark is black. See .sidebar-mdc-logo in styles.css.
   brandLogo: {
-    width: 28, height: 28, borderRadius: '50%', objectFit: 'contain',
-    background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
-    padding: 2, marginRight: 10, flexShrink: 0,
+    width: 30, height: 30, borderRadius: '50%', objectFit: 'contain',
+    background: '#fff', border: '1px solid rgba(255,255,255,0.2)',
+    padding: 4, marginRight: 10, flexShrink: 0,
   },
   tbBtn: {
     background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.85)', cursor: 'pointer',

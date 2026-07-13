@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import RequireAdmin from './components/RequireAdmin'
 import Layout from './components/Layout'
@@ -23,7 +23,6 @@ const LoginPage                = lazy(() => import('./pages/LoginPage'))
 const RegisterPage             = lazy(() => import('./pages/RegisterPage'))
 const LandingPage              = lazy(() => import('./pages/LandingPage'))
 const BrowsePage                = lazy(() => import('./pages/BrowsePage'))
-const SearchPage                = lazy(() => import('./pages/SearchPage'))
 const DashboardPage             = lazy(() => import('./pages/DashboardPage'))
 const BookmarksPage             = lazy(() => import('./pages/BookmarksPage'))
 const ProfilePage               = lazy(() => import('./pages/ProfilePage'))
@@ -45,9 +44,9 @@ function Admin({ children }) {
   )
 }
 
-// Browse, Search, and Thesis Detail are viewable by guests — the backend
-// already allows public access to /theses, /theses/{id}, and /search.
-// Only actually opening a PDF (the /viewer route) requires login.
+// Browse and Thesis Detail are viewable by guests — the backend already allows
+// public access to /theses, /theses/{id}, and /search. Only actually opening a
+// PDF (the /viewer route) requires login.
 function PublicLayout({ children }) {
   return <Layout>{children}</Layout>
 }
@@ -57,6 +56,17 @@ function HomeRedirect() {
   if (!token || !user) return <Navigate to="/login" replace />
   const isAdmin = user.role === 'super_admin' || user.role === 'staff' || user.role === 'admin'
   return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
+}
+
+// The Search page was merged into Browse. It was strictly the weaker of the
+// two: Browse hits the same /search endpoint, has the same quick tags, and adds
+// pagination — while Search's "year from/to" and "sort" controls were sent to a
+// backend that never read them, so they silently did nothing. The query string
+// is carried over so old links, bookmarks, and the landing page's footer link
+// still land on real results.
+function SearchRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/browse${search}`} replace />
 }
 
 export default function App() {
@@ -73,7 +83,7 @@ export default function App() {
         {/* Public browsing — guests can browse, search, and view thesis details */}
         <Route path="/theses/:id" element={<PublicLayout><ThesisDetail /></PublicLayout>} />
         <Route path="/browse"     element={<PublicLayout><BrowsePage /></PublicLayout>} />
-        <Route path="/search"     element={<PublicLayout><SearchPage /></PublicLayout>} />
+        <Route path="/search"     element={<SearchRedirect />} />
 
         {/* Student area */}
         <Route path="/dashboard"  element={<InLayout><DashboardPage /></InLayout>} />

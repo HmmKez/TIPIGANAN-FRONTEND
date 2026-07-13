@@ -59,6 +59,31 @@ export const reportsApi = {
   usersOnline: (params) => api.get('/reports/users-online', { params }),
 }
 
+// Settings — the navbar's active academic term. Reading it is public (guests
+// see the navbar too); only a Super Admin may change it.
+export const settingsApi = {
+  activeTerm: () => api.get('/settings/active-term'),
+  updateActiveTerm: (data) => api.put('/settings/active-term', data),
+}
+
+// Landing page — hero image, real headline stats, and department cards in one
+// public request. Only a Super Admin may change the hero image.
+export const landingApi = {
+  get: () => api.get('/landing'),
+  updateHero: (file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    return api.post('/landing/hero', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  resetHero: () => api.delete('/landing/hero'),
+  // Which collections are featured. An empty array means "show none" and is
+  // distinct from resetCollections(), which means "show them all again".
+  updateCollections: (categoryIds) => api.put('/landing/collections', { category_ids: categoryIds }),
+  resetCollections: () => api.delete('/landing/collections'),
+}
+
 // Citations
 export const citationsApi = {
   list: (thesisId) => api.get(`/theses/${thesisId}/citations`),

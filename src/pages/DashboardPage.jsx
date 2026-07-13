@@ -14,6 +14,10 @@ const DEPT_ICONS = {
   'GS': 'fa-graduation-cap', 'SPC': 'fa-star',
 }
 
+// "New" window for the dashboard tile. Kept next to the tile's label so the
+// number and the words can't drift apart.
+const NEW_WINDOW_DAYS = 30
+
 const GRADIENTS = [
   'linear-gradient(135deg,#345FCF,#5A79E5)',
   'linear-gradient(135deg,#7E57C2,#B388FF)',
@@ -30,6 +34,7 @@ export default function DashboardPage() {
   const [favorites, setFavorites] = useState([])
   const [categories, setCategories] = useState([])
   const [totalItems, setTotalItems] = useState(null)
+  const [newCount, setNewCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -41,13 +46,20 @@ export default function DashboardPage() {
       favoritesApi.list(),
       categoriesApi.list(),
       usersApi.profile(),
-    ]).then(([tRes, fRes, cRes, pRes]) => {
+      thesesApi.list({ per_page: 1, added_within_days: NEW_WINDOW_DAYS }),
+    ]).then(([tRes, fRes, cRes, pRes, nRes]) => {
       if (!mounted) return
       if (tRes.status === 'fulfilled') {
         // Laravel's paginate() response includes a top-level `total` — that's
         // the real "Total Items" count; per_page:1 since we only need it.
         const payload = tRes.value.data
         if (typeof payload?.total === 'number') setTotalItems(payload.total)
+      }
+      if (nRes.status === 'fulfilled') {
+        // Same trick, filtered to the recent window — the count therefore obeys
+        // the exact visibility rules the browse list uses.
+        const payload = nRes.value.data
+        if (typeof payload?.total === 'number') setNewCount(payload.total)
       }
       if (fRes.status === 'fulfilled') {
         setFavorites(fRes.value.data?.data || fRes.value.data || [])
@@ -84,12 +96,15 @@ export default function DashboardPage() {
 
   const firstName = user?.name?.split(' ')[0] || 'there'
 
-  // Real counts from GET /categories (theses_count), not hardcoded numbers.
-  const gsCategory = categories.find(c => /graduate/i.test(c.name || ''))
-  const gsCount = gsCategory?.theses_count ?? 0
-  const collegeCount = categories.reduce(
-    (sum, c) => sum + (c.id === gsCategory?.id ? 0 : (c.theses_count || 0)), 0
-  )
+  // Count only what this reader can actually open. `theses_count` includes
+  // archived theses, which are hidden from everyone — using it here made the
+  // tiles disagree with Browse (and with the "Total Items" tile beside them).
+  // A logged-in user sees active + restricted, matching ThesisController::index.
+  const visibleIn = (c) => (c.active_theses_count ?? 0) + (c.restricted_theses_count ?? 0)
+
+  // Departments worth opening. Counting every category advertised 11 when 6 of
+  // them are empty, so a third of the "departments" led to a blank page.
+  const departmentsWithContent = categories.filter(c => visibleIn(c) > 0).length
 
   // Real activity feed: this user's own bookmarks, views, and searches,
   // merged and sorted by actual timestamp — no placeholders. Empty for a
@@ -127,13 +142,16 @@ export default function DashboardPage() {
 
       {error && <ErrorMessage error={error} />}
 
+      {/* Four tiles, each answering a question a reader actually has: what can
+          I read, where do I look, what's new, what's mine. The old "GS" and
+          "College" tiles were an org-chart split — and were counting archived
+          theses nobody can open, so they summed to 23 while "Total Items" next
+          to them said 19. */}
       <div className="simple-stat-grid">
-        <div className="simple-stat"><div className="v">{totalItems ?? '—'}</div><div className="l">Total Items</div></div>
-        <div className="simple-stat"><div className="v">{gsCount}</div><div className="l">GS</div></div>
-        <div className="simple-stat"><div className="v">{collegeCount}</div><div className="l">College</div></div>
-        <div className="simple-stat"><div className="v">{categories.length || '—'}</div><div className="l">Departments</div></div>
+        <div className="simple-stat"><div className="v">{totalItems ?? '—'}</div><div className="l">Available to Read</div></div>
+        <div className="simple-stat"><div className="v">{departmentsWithContent || '—'}</div><div className="l">Departments</div></div>
+        <div className="simple-stat"><div className="v">{newCount ?? '—'}</div><div className="l">New in {NEW_WINDOW_DAYS} Days</div></div>
         <div className="simple-stat"><div className="v">{favorites.length}</div><div className="l">My Bookmarks</div></div>
-        <div className="simple-stat"><div className="v">{readingHistory.length}{readingHistory.length === 10 ? '+' : ''}</div><div className="l">Recently Read</div></div>
       </div>
 
       <div className="panel-grid-2">
@@ -228,7 +246,7 @@ export default function DashboardPage() {
             {categories.map(c => (
               <Link key={c.id} to={`/browse?category_id=${c.id}`}>
                 <i className={`fas ${DEPT_ICONS[c.name] || 'fa-folder'}`}></i>
-                {c.name} ({c.theses_count ?? 0})
+                {c.name} ({visibleIn(c)})
               </Link>
             ))}
           </div>

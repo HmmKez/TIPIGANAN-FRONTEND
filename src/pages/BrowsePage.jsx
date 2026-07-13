@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api, { apiOrigin } from '../api/axios'
+import { useAuth } from '../contexts/AuthContext'
 
 // Dept → icon + cover color (matches the mockup styling)
 const DEPT_META = {
@@ -44,6 +45,14 @@ function sortItems(items, sort) {
 export default function BrowsePage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  const { user } = useAuth()
+
+  // The badge beside each department must equal what clicking it returns.
+  // It previously used `theses_count`, which counts archived theses too — the
+  // filter advertised "CAST 19" and then showed 15. Guests see active only;
+  // logged-in users also see restricted, mirroring ThesisController::index.
+  const visibleIn = (c) =>
+    (c.active_theses_count ?? 0) + (user ? (c.restricted_theses_count ?? 0) : 0)
 
   const [heroInput, setHeroInput] = useState('')
   const [query, setQuery] = useState(params.get('q') || '')
@@ -327,8 +336,8 @@ export default function BrowsePage() {
                         />
                         {' '}{c.name}
                       </label>
-                      {c.theses_count != null && (
-                        <span className="filter-count">{c.theses_count}</span>
+                      {c.active_theses_count != null && (
+                        <span className="filter-count">{visibleIn(c)}</span>
                       )}
                     </div>
                   ))}

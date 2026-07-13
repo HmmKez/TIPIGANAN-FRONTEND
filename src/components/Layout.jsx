@@ -6,13 +6,16 @@ import { timeAgo } from '../utils/timeAgo'
 import { avatarUrl } from '../utils/avatar'
 import { boldQuoted } from '../utils/boldQuoted'
 import ConfirmModal from './ConfirmModal'
+import ActiveTermBadge from './ActiveTermBadge'
+import { MDC_LOGO } from '../config/branding'
 
 function getMenu(isAdmin, isGuest) {
   if (isGuest) {
     return [
+      // No separate "Search" tab: Browse is the single entry point and already
+      // carries the search box, quick tags, filters, and pagination.
       { section: 'REPOSITORY', items: [
         { to: '/browse', icon: 'fa-folder-open', label: 'Browse' },
-        { to: '/search',  icon: 'fa-search',      label: 'Search' },
       ] },
     ]
   }
@@ -130,13 +133,17 @@ export default function Layout({ children }) {
       )}
 
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-        <div className="sidebar-brand">
-          <img src="https://sis.materdeicollege.com/img/MDC-Logo-clipped.png" alt="MDC" className="sidebar-mdc-logo" />
+        {/* The brand is a link home, the way it is on essentially every site.
+            Signed in, there was previously NO route back to the landing page at
+            all — you had to edit the URL by hand, which also made the Super
+            Admin's landing-page editor unreachable from inside the app. */}
+        <Link to="/" className="sidebar-brand" onClick={closeSidebarOnMobile} title="Go to the landing page">
+          <img src={MDC_LOGO} alt="MDC" className="sidebar-mdc-logo" />
           <div className="brand-text">
             <div className="brand-name">TIPIGANAN</div>
             <div className="brand-sub">MDC Repository</div>
           </div>
-        </div>
+        </Link>
 
         {menu.map(group => (
           <div key={group.section}>
@@ -162,10 +169,16 @@ export default function Layout({ children }) {
           <div className="topbar-left">
             <i className="fas fa-bars menu-toggle" title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
                onClick={() => setSidebarOpen(v => !v)}></i>
-            <span className="term-info"><b style={{ color: 'var(--text-primary)' }}>Active Term:</b></span>
-            <span className="term-badge term-info">1st Semester AY 2026-2027</span>
+            <ActiveTermBadge />
           </div>
           <div className="topbar-right">
+            {/* Shown to guests as well as signed-in users — inside the app shell
+                neither had any way back to the landing page. */}
+            <Link to="/" className="topbar-home" title="Back to the landing page">
+              <i className="fas fa-arrow-left"></i>
+              <span>Home</span>
+            </Link>
+
             {isGuest ? (
               <>
                 <Link to="/login" className="btn btn-secondary btn-sm">

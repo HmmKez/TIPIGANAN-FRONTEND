@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
+import { MDC_LOGO } from '../config/branding'
 
 const DEPARTMENTS = [
   'CAST — College of Arts, Sciences & Teacher Education',
@@ -73,7 +74,7 @@ export default function RegisterPage() {
           <i className="fas fa-arrow-left"></i> Back to Home
         </Link>
         <div className="auth-logo">
-          <img src="https://sis.materdeicollege.com/img/MDC-Logo-clipped.png" alt="MDC Logo" id="login-logo" />
+          <img src={MDC_LOGO} alt="MDC Logo" id="login-logo" />
         </div>
         <h1>TIPIGANAN</h1>
         <p>MDC Online Repository of Special and Rare Collections. Access digitally preserved thesis manuscripts from departments across Mater Dei College.</p>

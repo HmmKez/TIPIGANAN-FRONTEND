@@ -93,26 +93,26 @@ export default function AuditLogsPage() {
   // explicitly sent (otherwise it silently defaults to "last month",
   // ignoring whatever's on screen) — so export always sends period=custom
   // with the exact range currently shown here, defaulting to "everything
-  // up to today" when no range is set, so the PDF matches the visible list.
+  // up to today" when no range is set, so the file matches the visible list.
   const exportLogs = async () => {
     const from = dateFrom || '2000-01-01'
     const to = dateTo || new Date().toISOString().slice(0, 10)
     setExporting(true)
     try {
-      const res = await auditApi.exportPdf({
+      const res = await auditApi.exportCsv({
         period: 'custom',
         date_from: from,
         date_to: to,
         action: tabAction[tab],
       })
-      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'audit-log-export.pdf'
+      a.download = `audit-log-${from}-to-${to}.csv`
       a.click()
       URL.revokeObjectURL(url)
-      notify(`Audit log PDF downloaded (${from} to ${to}).`, 'success')
+      notify(`Audit log CSV downloaded (${from} to ${to}).`, 'success')
     } catch (err) {
       notify(err?.response?.data?.message || 'Export failed — requires the export_reports permission.', 'error')
     } finally {
@@ -131,9 +131,9 @@ export default function AuditLogsPage() {
           <div className="page-subtitle">System activity tracking and security audit trail.</div>
         </div>
         <button className="btn btn-primary" onClick={exportLogs} disabled={exporting}
-                title="Exports Timestamp, User, Action, and Description columns for the date range and activity type currently selected below.">
-          <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
-          {exporting ? ' Exporting…' : ' Export PDF'}
+                title="Downloads a CSV (Timestamp, User, Role, Action, Description, IP Address) for the date range and activity type currently selected below. Opens in Excel or Google Sheets.">
+          <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-csv'}`}></i>
+          {exporting ? ' Exporting…' : ' Export CSV'}
         </button>
       </div>
 
@@ -151,7 +151,14 @@ export default function AuditLogsPage() {
           <span className="date-preset" style={presetStyle} onClick={() => setPreset('today')}>Today</span>
           <span className="date-preset" style={presetStyle} onClick={() => setPreset('week')}>Last 7 Days</span>
           <span className="date-preset" style={presetStyle} onClick={() => setPreset('month')}>Last 30 Days</span>
-          <span className="date-preset" style={presetStyle} onClick={() => setPreset('clear')}>Clear</span>
+          {/* These are DATE-RANGE presets. This one used to be labelled "Clear",
+              which — sitting directly above a list of audit entries — reads as
+              "delete the logs", the one irreversible thing you must never do to
+              an audit trail. It only widens the range to everything. */}
+          <span className="date-preset" style={presetStyle} onClick={() => setPreset('clear')}
+                title="Show entries from all dates (removes the date filter). Does not delete anything.">
+            All Time
+          </span>
         </div>
         <div className="text-muted" style={{ fontSize: 12 }}>
           <i className="fas fa-database"></i> {meta.total.toLocaleString()} entries

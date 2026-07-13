@@ -1,6 +1,5 @@
 import { currentUser } from '../api/auth'
-
-const MDC_LOGO = 'https://sis.materdeicollege.com/img/MDC-Logo-clipped.png'
+import { WATERMARK_LOGO } from '../config/branding'
 
 // The visible-in-browser watermark. This is the *frontend* layer — the
 // server-side WatermarkService already baked identity into the PDF stream,
@@ -26,7 +25,7 @@ export default function Watermark({ thesisId }) {
         {Array.from({ length: rows * cols }).map((_, i) => (
           <div key={i} className="wm-cell">
             <div className="wm-mark">
-              <img src={MDC_LOGO} alt="" className="wm-logo" />
+              <img src={WATERMARK_LOGO} alt="" className="wm-logo" />
               <div className="wm-text">
                 <span className="wm-sub">{stamp}</span>
                 <br />

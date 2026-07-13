@@ -68,7 +68,9 @@ export const permissionsApi = {
 export const auditApi = {
   list: (params) => api.get('/audit-logs', { params }),
   get:  (id)     => api.get(`/audit-logs/${id}`),
-  exportPdf: (params) => api.get('/audit-logs/export', { params, responseType: 'blob' }),
+  // CSV, not PDF: the audit log is unbounded and is meant to be filtered and
+  // pivoted in a spreadsheet, not read as a printed document.
+  exportCsv: (params) => api.get('/audit-logs/export', { params, responseType: 'blob' }),
 }
 
 // ============ REPORTS ============

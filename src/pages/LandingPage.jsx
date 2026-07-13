@@ -1,4 +1,9 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MDC_LOGO } from '../config/branding'
+import { useAuth } from '../contexts/AuthContext'
+import { landingApi, categoriesApi } from '../api'
+import { apiOrigin } from '../api/axios'
 
 const landingStyles = `
   .landing-body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background:#F6F7FB; color:#2C3142; line-height:1.5; }
@@ -10,8 +15,10 @@ const landingStyles = `
     position:sticky; top:0; z-index:1000;
   }
   .lp-logo-area { display:flex; align-items:center; gap:16px; }
-  .lp-logo-img { width:52px; height:52px; object-fit:contain; border-radius:50%;
-    background: linear-gradient(135deg, #EBF0FF, #ffffff); padding:3px;
+  /* Inset ~11.5% so the landscape badge fits wholly inside the round plate
+     rather than being clipped by it — see .sidebar-mdc-logo in styles.css. */
+  .lp-logo-img { width:56px; height:56px; object-fit:contain; border-radius:50%;
+    background: linear-gradient(135deg, #EBF0FF, #ffffff); padding:6px;
     box-shadow: 0 4px 12px rgba(52,95,207,.15); }
   .lp-divider { width:1px; height:36px; background: linear-gradient(180deg, transparent, #E5E8F0, transparent); }
   .lp-brand-main {
@@ -38,11 +45,30 @@ const landingStyles = `
     box-shadow: 0 4px 12px rgba(52,95,207,.3); transition: all .3s;
   }
   .lp-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(52,95,207,.4); }
+  /* background-image is set inline from the API (a Super Admin can swap it),
+     so only the framing lives here. The brand colour underneath means a hero
+     that is narrower than the viewport never shows bare white. */
   .lp-hero {
-    background: linear-gradient(105deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.4) 100%),
-                url('/images/library-system.png');
-    background-size: cover; background-position: center 35%;
+    background-color: #2A4FB5;
+    background-size: cover; background-position: center; background-repeat: no-repeat;
     color: white; padding: 120px 48px 130px; position:relative;
+  }
+  /* Super-Admin-only control, pinned to the hero's corner. */
+  .lp-hero-edit {
+    position:absolute; right:20px; bottom:20px; z-index:3;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+  }
+  .lp-hero-edit button {
+    display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+    background: rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.35);
+    padding:8px 14px; border-radius:24px; font-size:12px; font-weight:600;
+    font-family:inherit; backdrop-filter: blur(8px); transition: all .2s;
+  }
+  .lp-hero-edit button:hover:not(:disabled) { background: rgba(0,0,0,.75); border-color:#fff; }
+  .lp-hero-edit button:disabled { opacity:.6; cursor:default; }
+  .lp-hero-err {
+    background: rgba(192,57,43,.92); color:#fff; padding:7px 12px;
+    border-radius:16px; font-size:12px; font-weight:600;
   }
   .lp-hero-container { max-width:1280px; margin:0 auto; position:relative; z-index:2; }
   .lp-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.14);
@@ -109,6 +135,50 @@ const landingStyles = `
   .lp-dept-card h4 { font-size:15px; font-weight:700; margin-bottom:3px; letter-spacing:.3px; }
   .lp-dept-card .count { font-size:11.5px; color:rgba(255,255,255,.82); }
 
+  /* Super-Admin-only: choose which collections this page features. */
+  .lp-coll-admin { display:flex; justify-content:center; margin: -28px 0 28px; }
+  .lp-coll-admin button {
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-family:inherit;
+    background:#fff; color:#345FCF; border:1.5px solid #D6DEF5;
+    padding:9px 18px; border-radius:24px; font-size:12.5px; font-weight:600; transition: all .2s;
+  }
+  .lp-coll-admin button:hover { border-color:#345FCF; background:#EBF0FF; }
+
+  .lp-coll-picker {
+    max-width:640px; margin:0 auto 36px; background:#fff; border:1px solid #E5E8F0;
+    border-radius:14px; padding:18px; box-shadow: 0 8px 28px rgba(20,25,40,.10);
+  }
+  .lp-coll-picker-head {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px; font-weight:700; color:#2C3142; margin-bottom:12px;
+  }
+  .lp-coll-count { font-size:11.5px; font-weight:600; color:#8A8A8A; }
+  .lp-coll-list {
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap:6px;
+    max-height:230px; overflow-y:auto; margin-bottom:14px;
+  }
+  .lp-coll-item {
+    display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:8px;
+    font-size:13px; color:#2C3142; cursor:pointer; transition: background .15s;
+  }
+  .lp-coll-item:hover { background:#F6F7FB; }
+  .lp-coll-item input { width:15px; height:15px; accent-color:#345FCF; cursor:pointer; flex-shrink:0; }
+  .lp-coll-err { font-size:12px; color:#C0392B; margin-bottom:10px; font-weight:600; }
+  .lp-coll-actions { display:flex; align-items:center; gap:8px; }
+  .lp-coll-actions button {
+    cursor:pointer; font-family:inherit; font-size:12.5px; font-weight:600;
+    padding:8px 16px; border-radius:20px; transition: all .2s;
+  }
+  .lp-coll-actions button:disabled { opacity:.6; cursor:default; }
+  .lp-coll-actions .ghost { background:#fff; color:#4A4A4A; border:1.5px solid #E5E8F0; }
+  .lp-coll-actions .ghost:hover:not(:disabled) { border-color:#345FCF; color:#345FCF; }
+  .lp-coll-actions .primary { background:#345FCF; color:#fff; border:1.5px solid #345FCF; }
+  .lp-coll-actions .primary:hover:not(:disabled) { background:#2A4FB5; }
+  .lp-coll-empty {
+    text-align:center; color:#8A8A8A; font-size:13.5px; padding:36px 20px;
+    border:1px dashed #E5E8F0; border-radius:14px;
+  }
+
   .lp-cta-section {
     background: linear-gradient(135deg, #345FCF 0%, #2A4FB5 100%); color:#fff; padding:80px 48px; text-align:center;
   }
@@ -137,32 +207,156 @@ const landingStyles = `
   }
 `
 
-// NOTE: image assigned per department based on best content match against
-// what's in public/images. CAST/CCJ/CON/CABM-B/CABM-H are direct name
-// matches. GS uses education.jpg (closest available fit). COE and SPC have
-// no dedicated photo yet — department-studies.png and faculty.png are
-// placeholders; swap in real department photos when available.
-// NOTE: "department studies.png" had a space in the filename on disk —
-// rename it to "department-studies.png" to match the path used below.
-const DEPARTMENTS = [
-  { code: 'CAST', name: 'Arts & Sciences', icon: 'fa-flask', count: '412 items', image: '/images/cast.jpg' },
-  { code: 'CCJ', name: 'Criminal Justice', icon: 'fa-balance-scale', count: '188 items', image: '/images/ccj.jpg' },
-  { code: 'COE', name: 'Engineering', icon: 'fa-microchip', count: '236 items', image: '/images/department-studies.png' },
-  { code: 'CON', name: 'Nursing', icon: 'fa-heartbeat', count: '271 items', image: '/images/nursing.jpg' },
-  { code: 'CABM-B', name: 'Business Mgmt.', icon: 'fa-chart-line', count: '203 items', image: '/images/business.jpg' },
-  { code: 'CABM-H', name: 'Hospitality', icon: 'fa-hotel', count: '145 items', image: '/images/hospitality.jpg' },
-  { code: 'GS', name: 'Graduate Studies', icon: 'fa-graduation-cap', count: '305 items', image: '/images/education.jpg' },
-  { code: 'SPC', name: 'Special Collections', icon: 'fa-star', count: '96 items', image: '/images/faculty.png' },
-]
+// The cards previously hardcoded eight "departments" with invented item counts
+// ("412 items"). They are now the real categories — which is also why the
+// section is no longer called "Browse by Department": several of them
+// (Faculty Research, Institutional Publications, Special Boholano Creations)
+// were never departments at all.
+//
+// A category with no cover image uploaded yet falls back to a bundled picture,
+// matched by name. This is only a fallback: as soon as a cover is set in
+// Category Management, that image wins.
+const FALLBACK_COVERS = {
+  'CAST': '/images/cast.jpg',
+  'CCJ': '/images/ccj.jpg',
+  'COE': '/images/department-studies.png',
+  'CON': '/images/nursing.jpg',
+  'CABM-B': '/images/business.jpg',
+  'CABM-H': '/images/hospitality.jpg',
+  'Graduate Studies': '/images/education.jpg',
+  'Faculty Research': '/images/faculty.png',
+}
+// A category with no cover and no bundled match gets a plain brand panel — NOT
+// a stand-in photo. The obvious "default image" here would be the MDC banner,
+// but it has text baked into it, so it reads as a mistake when tiled across
+// several unrelated departments.
+const BRAND_PLACEHOLDER = 'linear-gradient(135deg, #345FCF, #2A4FB5)'
+
+const DEFAULT_HERO = '/images/library-system.png'
+
+const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : '—')
 
 export default function LandingPage() {
+  const { user, isAdmin } = useAuth()
+  const isSuperAdmin = user?.role === 'super_admin'
+  const homePath = isAdmin ? '/admin' : '/dashboard'
+
+  const [data, setData] = useState(null)
+  const [heroBusy, setHeroBusy] = useState(false)
+  const [heroError, setHeroError] = useState('')
+  const fileRef = useRef(null)
+
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [allCategories, setAllCategories] = useState([])
+  const [selectedIds, setSelectedIds] = useState([])
+  const [pickerBusy, setPickerBusy] = useState(false)
+  const [pickerError, setPickerError] = useState('')
+
+  const load = () => landingApi.get().then(res => setData(res.data)).catch(() => {})
+
+  useEffect(() => { load() }, [])
+
+  const stats = data?.stats
+  const collections = data?.collections || []
+
+  const heroImage = data?.hero_image_path
+    ? `${apiOrigin}/storage/${data.hero_image_path}`
+    : DEFAULT_HERO
+
+  const coverStyle = (d) => {
+    const src = d.cover_image_path
+      ? `${apiOrigin}/storage/${d.cover_image_path}`
+      : FALLBACK_COVERS[d.name]
+    return { backgroundImage: src ? `url('${src}')` : BRAND_PLACEHOLDER }
+  }
+
+  const pickHero = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // let the same file be re-picked after an error
+    if (!file) return
+    setHeroBusy(true); setHeroError('')
+    try {
+      await landingApi.updateHero(file)
+      await load()
+    } catch (err) {
+      const d = err?.response?.data
+      setHeroError(d?.errors?.image?.[0] || d?.message || 'Could not update the image.')
+    } finally {
+      setHeroBusy(false)
+    }
+  }
+
+  const resetHero = async () => {
+    setHeroBusy(true); setHeroError('')
+    try {
+      await landingApi.resetHero()
+      await load()
+    } catch {
+      setHeroError('Could not reset the image.')
+    } finally {
+      setHeroBusy(false)
+    }
+  }
+
+  // --- Featured collections (Super Admin) ---------------------------------
+  // The landing payload only returns the collections that are CURRENTLY shown,
+  // so picking from it alone could never re-add a hidden one. The editor pulls
+  // the full category list separately and treats the payload as the "checked"
+  // set.
+  const openPicker = async () => {
+    setPickerError('')
+    setSelectedIds(collections.map(c => c.id))
+    setPickerOpen(true)
+    if (!allCategories.length) {
+      try {
+        const res = await categoriesApi.list()
+        setAllCategories(res.data?.data || res.data || [])
+      } catch {
+        setPickerError('Could not load the collections.')
+      }
+    }
+  }
+
+  const toggleId = (id) => setSelectedIds(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  )
+
+  const savePicker = async () => {
+    setPickerBusy(true); setPickerError('')
+    try {
+      await landingApi.updateCollections(selectedIds)
+      await load()
+      setPickerOpen(false)
+    } catch {
+      setPickerError('Could not save the selection.')
+    } finally {
+      setPickerBusy(false)
+    }
+  }
+
+  // Distinct from saving every ID: this clears the setting, so collections
+  // added later show up automatically instead of staying invisible until
+  // someone remembers to tick them.
+  const showAll = async () => {
+    setPickerBusy(true); setPickerError('')
+    try {
+      await landingApi.resetCollections()
+      await load()
+      setPickerOpen(false)
+    } catch {
+      setPickerError('Could not reset the selection.')
+    } finally {
+      setPickerBusy(false)
+    }
+  }
+
   return (
     <div className="landing-body">
       <style>{landingStyles}</style>
       <div className="landing-wrapper">
         <nav className="lp-navbar">
           <div className="lp-logo-area">
-            <img src="https://sis.materdeicollege.com/img/MDC-Logo-clipped.png" alt="MDC" className="lp-logo-img" />
+            <img src={MDC_LOGO} alt="MDC" className="lp-logo-img" />
             <div className="lp-divider"></div>
             <div>
               <div className="lp-brand-main">TIPIGANAN</div>
@@ -171,32 +365,76 @@ export default function LandingPage() {
           </div>
           <div className="lp-nav-links">
             <a href="#features">Features</a>
-            <a href="#departments">Departments</a>
+            <a href="#collections">Collections</a>
             <a href="#about">About</a>
           </div>
+          {/* Until signed-in users could reach this page at all, the navbar
+              always assumed a guest — so a logged-in Super Admin coming here to
+              edit the hero was greeted with "Sign In". Reflect who's actually
+              looking at it. */}
           <div className="lp-nav-actions">
-            <Link to="/login" className="lp-btn-outline"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
-            <Link to="/register" className="lp-btn-primary"><i className="fas fa-user-plus"></i> Get Started</Link>
+            {user ? (
+              <Link to={homePath} className="lp-btn-primary">
+                <i className="fas fa-th-large"></i> Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="lp-btn-outline"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
+                <Link to="/register" className="lp-btn-primary"><i className="fas fa-user-plus"></i> Get Started</Link>
+              </>
+            )}
           </div>
         </nav>
 
-        <section className="lp-hero">
+        {/* A heavier scrim than a photo would need: the default image is the MDC
+            banner, which has its own headline and an email strip baked in. The
+            darker wash pushes all of that back to texture so the page's own
+            headline stays the only thing being read. A Super Admin who uploads a
+            plain photo still gets a normal, legible hero out of it. */}
+        <section className="lp-hero" style={{ backgroundImage:
+          `linear-gradient(105deg, rgba(12,20,45,0.82) 0%, rgba(12,20,45,0.62) 100%), url('${heroImage}')` }}>
           <div className="lp-hero-container">
             <div className="lp-badge"><i className="fas fa-shield-alt"></i> Secure Academic Repository</div>
             <h1>Preserving Knowledge,<br />Empowering <span>Research</span></h1>
             <p>TIPIGANAN is the official MDC online repository of special and rare collections — a digitally preserved home for thesis manuscripts, faculty research, institutional publications, and Boholano academic heritage.</p>
             <div className="lp-hero-actions">
-              <Link to="/register" className="lp-hero-cta"><i className="fas fa-rocket"></i> Get Started</Link>
+              {user ? (
+                <Link to={homePath} className="lp-hero-cta">
+                  <i className="fas fa-th-large"></i> Go to Dashboard
+                </Link>
+              ) : (
+                <Link to="/register" className="lp-hero-cta">
+                  <i className="fas fa-rocket"></i> Get Started
+                </Link>
+              )}
               <Link to="/browse" className="lp-hero-secondary"><i className="fas fa-book-open"></i> Browse Collections</Link>
             </div>
           </div>
+
+          {/* Super Admin only — swap the hero image without touching the repo. */}
+          {isSuperAdmin && (
+            <div className="lp-hero-edit">
+              {heroError && <span className="lp-hero-err">{heroError}</span>}
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+                     onChange={pickHero} style={{ display: 'none' }} />
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={heroBusy}>
+                <i className="fas fa-image"></i> {heroBusy ? 'Saving…' : 'Change image'}
+              </button>
+              {data?.hero_image_path && (
+                <button type="button" onClick={resetHero} disabled={heroBusy}>
+                  <i className="fas fa-rotate-left"></i> Reset
+                </button>
+              )}
+            </div>
+          )}
         </section>
 
+        {/* Real counts from the database — these were invented figures before. */}
         <div className="lp-stat-strip">
-          <div><div className="value">2,052+</div><div className="label">Total Items</div></div>
-          <div><div className="value">8</div><div className="label">Departments</div></div>
-          <div><div className="value">1,847</div><div className="label">Users</div></div>
-          <div><div className="value">14K+</div><div className="label">Total Views</div></div>
+          <div><div className="value">{fmt(stats?.total_theses)}</div><div className="label">Total Items</div></div>
+          <div><div className="value">{fmt(stats?.total_categories)}</div><div className="label">Collections</div></div>
+          <div><div className="value">{fmt(stats?.total_users)}</div><div className="label">Users</div></div>
+          <div><div className="value">{fmt(stats?.total_views)}</div><div className="label">Total Views</div></div>
         </div>
 
         <section className="lp-section" id="features">
@@ -222,7 +460,7 @@ export default function LandingPage() {
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-quote-right"></i></div>
                 <h3>Citation Generator</h3>
-                <p>Generate APA, MLA, and Chicago citations instantly, ready to paste into your paper.</p>
+                <p>Generate APA and MLA citations instantly, ready to paste into your paper.</p>
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-chart-line"></i></div>
@@ -238,31 +476,113 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="lp-section" id="departments" style={{background:'var(--bg-white)'}}>
+        {/* Was "Browse by Department" — but the categories are no longer only
+            departments (Faculty Research, Institutional Publications, Special
+            Boholano Creations, Special Collections). "Collections" is what they
+            actually are, and it matches the repository's own name. */}
+        <section className="lp-section" id="collections" style={{background:'var(--bg-white)'}}>
           <div className="lp-container">
-            <h2>Browse by Department</h2>
-            <p className="subtitle">Explore collections curated by each college of Mater Dei.</p>
-            <div className="lp-dept-grid">
-              {DEPARTMENTS.map(d => (
-                <Link to="/browse" key={d.code} className="lp-dept-card">
-                  <div className="lp-dept-photo" style={{ backgroundImage: `url('${d.image}')` }}></div>
-                  <div className="lp-dept-body">
-                    <h4>{d.code}</h4>
-                    <div className="count">{d.name} · {d.count}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <h2>Explore the Collections</h2>
+            <p className="subtitle">Browse the archive by collection — academic departments, faculty research, institutional publications, and Boholano special collections.</p>
+
+            {isSuperAdmin && (
+              <div className="lp-coll-admin">
+                <button type="button" onClick={() => (pickerOpen ? setPickerOpen(false) : openPicker())}>
+                  <i className="fas fa-sliders"></i> Choose which collections to show
+                </button>
+              </div>
+            )}
+
+            {isSuperAdmin && pickerOpen && (
+              <div className="lp-coll-picker">
+                <div className="lp-coll-picker-head">
+                  <span>Shown on this page</span>
+                  <span className="lp-coll-count">{selectedIds.length} of {allCategories.length} selected</span>
+                </div>
+
+                {allCategories.length === 0 && !pickerError && (
+                  <div className="lp-coll-empty"><i className="fas fa-spinner fa-spin"></i> Loading…</div>
+                )}
+
+                <div className="lp-coll-list">
+                  {allCategories.map(c => (
+                    <label key={c.id} className="lp-coll-item">
+                      <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleId(c.id)} />
+                      <span>{c.name}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {pickerError && <div className="lp-coll-err">{pickerError}</div>}
+
+                <div className="lp-coll-actions">
+                  <button type="button" className="ghost" onClick={showAll} disabled={pickerBusy}
+                          title="Clear the selection so every collection shows, including any added later">
+                    Show all
+                  </button>
+                  <div style={{ flex: 1 }} />
+                  <button type="button" className="ghost" onClick={() => setPickerOpen(false)} disabled={pickerBusy}>
+                    Cancel
+                  </button>
+                  <button type="button" className="primary" onClick={savePicker} disabled={pickerBusy}>
+                    {pickerBusy ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {collections.length === 0 ? (
+              <div className="lp-coll-empty">
+                {isSuperAdmin
+                  ? 'No collections are being shown. Use "Choose which collections to show" above.'
+                  : 'No collections to show yet.'}
+              </div>
+            ) : (
+              <div className="lp-dept-grid">
+                {collections.map(c => (
+                  // Carries the category through to Browse, which already reads
+                  // ?category_id — so the card lands on that collection's items,
+                  // not an unfiltered list.
+                  <Link to={`/browse?category_id=${c.id}`} key={c.id} className="lp-dept-card">
+                    <div className="lp-dept-photo" style={coverStyle(c)}></div>
+                    <div className="lp-dept-body">
+                      <h4>{c.name}</h4>
+                      <div className="count">{c.total === 1 ? '1 item' : `${fmt(c.total)} items`}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
+        {/* Asking someone who is already signed in to "Create Free Account" and
+            "Sign In" reads as a bug. Pitch to guests; give members somewhere to
+            actually go. */}
         <section className="lp-cta-section" id="about">
-          <h2>Ready to Explore MDC's Academic Heritage?</h2>
-          <p>Join students, faculty, and researchers already using TIPIGANAN to access special collections and rare academic works.</p>
-          <div className="lp-cta-buttons">
-            <Link to="/register" className="lp-hero-cta" style={{color:'#345FCF'}}><i className="fas fa-user-plus"></i> Create Free Account</Link>
-            <Link to="/login" className="lp-hero-secondary"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
-          </div>
+          {user ? (
+            <>
+              <h2>Pick Up Where You Left Off</h2>
+              <p>Your bookmarks, reading history, and the full MDC special collections are a click away.</p>
+              <div className="lp-cta-buttons">
+                <Link to={homePath} className="lp-hero-cta" style={{color:'#345FCF'}}>
+                  <i className="fas fa-th-large"></i> Go to Dashboard
+                </Link>
+                <Link to="/browse" className="lp-hero-secondary">
+                  <i className="fas fa-book-open"></i> Browse Collections
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Ready to Explore MDC's Academic Heritage?</h2>
+              <p>Join students, faculty, and researchers already using TIPIGANAN to access special collections and rare academic works.</p>
+              <div className="lp-cta-buttons">
+                <Link to="/register" className="lp-hero-cta" style={{color:'#345FCF'}}><i className="fas fa-user-plus"></i> Create Free Account</Link>
+                <Link to="/login" className="lp-hero-secondary"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
+              </div>
+            </>
+          )}
         </section>
 
         <footer className="lp-footer">
@@ -275,15 +595,23 @@ export default function LandingPage() {
               <h4>Explore</h4>
               <ul>
                 <li><Link to="/browse">Browse</Link></li>
-                <li><Link to="/search">Search</Link></li>
-                <li><a href="#departments">Departments</a></li>
+                <li><a href="#collections">Collections</a></li>
               </ul>
             </div>
             <div>
               <h4>Account</h4>
               <ul>
-                <li><Link to="/login">Sign In</Link></li>
-                <li><Link to="/register">Register</Link></li>
+                {user ? (
+                  <>
+                    <li><Link to={homePath}>Dashboard</Link></li>
+                    <li><Link to="/profile">My Profile</Link></li>
+                  </>
+                ) : (
+                  <>
+                    <li><Link to="/login">Sign In</Link></li>
+                    <li><Link to="/register">Register</Link></li>
+                  </>
+                )}
               </ul>
             </div>
             <div>
