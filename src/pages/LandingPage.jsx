@@ -213,23 +213,19 @@ const landingStyles = `
 // (Faculty Research, Institutional Publications, Special Boholano Creations)
 // were never departments at all.
 //
-// A category with no cover image uploaded yet falls back to a bundled picture,
-// matched by name. This is only a fallback: as soon as a cover is set in
-// Category Management, that image wins.
-const FALLBACK_COVERS = {
-  'CAST': '/images/cast.jpg',
-  'CCJ': '/images/ccj.jpg',
-  'COE': '/images/department-studies.png',
-  'CON': '/images/nursing.jpg',
-  'CABM-B': '/images/business.jpg',
-  'CABM-H': '/images/hospitality.jpg',
-  'Graduate Studies': '/images/education.jpg',
-  'Faculty Research': '/images/faculty.png',
-}
-// A category with no cover and no bundled match gets a plain brand panel — NOT
-// a stand-in photo. The obvious "default image" here would be the MDC banner,
-// but it has text baked into it, so it reads as a mistake when tiled across
-// several unrelated departments.
+// There used to be a FALLBACK_COVERS map here, pairing a category with a bundled
+// image BY NAME. It has been deleted, for three reasons:
+//   1. Every department category now carries its real seal in the database
+//      (`php artisan categories:restore-covers`), so there is nothing to fall
+//      back to.
+//   2. It keyed on names like 'CAST', which stopped matching the moment the
+//      categories were renamed to their full titles — it was already dead.
+//   3. It was wrong: it paired "Graduate Studies" with education.jpg, which is
+//      the College of EDUCATION seal. GS was displaying COE's logo.
+//
+// A category with no cover gets a plain brand panel — NOT a stand-in photo.
+// Putting the generic MDC seal on some collections and not others reads as a
+// bug rather than a decision.
 const BRAND_PLACEHOLDER = 'linear-gradient(135deg, #345FCF, #2A4FB5)'
 
 const DEFAULT_HERO = '/images/library-system.png'
@@ -263,12 +259,11 @@ export default function LandingPage() {
     ? `${apiOrigin}/storage/${data.hero_image_path}`
     : DEFAULT_HERO
 
-  const coverStyle = (d) => {
-    const src = d.cover_image_path
-      ? `${apiOrigin}/storage/${d.cover_image_path}`
-      : FALLBACK_COVERS[d.name]
-    return { backgroundImage: src ? `url('${src}')` : BRAND_PLACEHOLDER }
-  }
+  const coverStyle = (d) => ({
+    backgroundImage: d.cover_image_path
+      ? `url('${apiOrigin}/storage/${d.cover_image_path}')`
+      : BRAND_PLACEHOLDER,
+  })
 
   const pickHero = async (e) => {
     const file = e.target.files?.[0]
