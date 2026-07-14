@@ -445,51 +445,55 @@ export default function LandingPage() {
         <section className="lp-section" id="features">
           <div className="lp-container">
             <h2>Built for Academic Excellence</h2>
-            <p className="subtitle">Everything you need to discover, read, and preserve scholarly work at Mater Dei College.</p>
-            {/* Six cards, three per row. Every claim below is one the system
-                actually delivers — see the notes on the two that were not. */}
+            {/* "preserve" was the institution's concern, not the reader's — the
+                person reading this wants to find something, read it, and cite it. */}
+            <p className="subtitle">Everything you need to find, read, and cite the work held in Mater Dei College's collections.</p>
+            {/* This page is read by GUESTS — students, teachers, researchers who
+                are not logged in. Every card is therefore written from the
+                reader's side of the screen: what they can do, not what the system
+                has. Two cards used to fail that test — an "Analytics & Reports"
+                card advertising a staff-only feature no visitor here can use, and
+                an OCR card describing our implementation rather than their
+                benefit. The admin side is documented in full in the capstone
+                catalog; it does not need to be sold to a student. */}
             <div className="lp-features-grid">
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-search"></i></div>
-                <h3>Powerful Search</h3>
-                {/* Was "...and full-text OCR content". Nothing stores or indexes
-                    the full text: Thesis::toSearchableArray indexes title,
-                    authors, adviser, abstract and keywords, and OCR writes only
-                    the abstract and keywords back. */}
-                <p>Search titles, authors, advisers, abstracts, and keywords at once — typo-tolerant, and still working even if the search engine goes down.</p>
+                <h3>Find What You Need</h3>
+                <p>Search titles, authors, advisers, abstracts, and keywords all at once — then narrow by collection or year. Typos are forgiven.</p>
               </div>
               <div className="lp-feature-card">
-                <div className="lp-feature-icon"><i className="fas fa-shield-alt"></i></div>
-                <h3>Secure Viewing</h3>
-                {/* Was "...screenshots disabled". A browser cannot disable a
-                    screenshot — the viewer blocks Ctrl+P/S/C, right-click, F12
-                    and the print dialog, but nothing stops Win+Shift+S or a
-                    phone camera. The watermark is the actual protection, so say
-                    that instead of promising something we cannot enforce. */}
-                <p>Read-only in the browser. Downloading, printing, copying, and right-click are blocked, and every page is watermarked with the reader's identity.</p>
+                <div className="lp-feature-icon"><i className="fas fa-book-reader"></i></div>
+                <h3>Read It Right Away</h3>
+                {/* Sets expectations honestly and early: a reader who arrives
+                    expecting to download a PDF should find that out here, not
+                    after signing up. */}
+                <p>Opens straight in your browser, on a laptop or a phone. Reading is view-only — no downloads or printing, and each page carries your name as a watermark.</p>
               </div>
               <div className="lp-feature-card">
-                <div className="lp-feature-icon"><i className="fas fa-file-import"></i></div>
-                <h3>Scanned Works, Readable</h3>
-                <p>Image-only scans of older manuscripts are read by OCR, so their abstract and keywords are recovered and become searchable like any other item.</p>
+                <div className="lp-feature-icon"><i className="fas fa-clock-rotate-left"></i></div>
+                <h3>Older Works Included</h3>
+                {/* The reader does not care that it is OCR. They care that the
+                    1990s scanned thesis is findable at all. */}
+                <p>Scanned, typewritten manuscripts are read automatically, so decades-old work turns up in your search alongside everything else.</p>
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-bookmark"></i></div>
-                <h3>Personal Library</h3>
-                <p>Bookmark items, keep a private reading history, and pick up right where you left off.</p>
+                <h3>Your Own Library</h3>
+                <p>Bookmark anything worth returning to, keep a private reading history, and pick up exactly where you left off.</p>
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-quote-right"></i></div>
-                <h3>Citation Generator</h3>
-                <p>Generate APA and MLA citations instantly, ready to paste into your paper.</p>
+                <h3>Citations Ready to Paste</h3>
+                <p>Every item generates its APA and MLA citation for you — copy it straight into your paper, correctly formatted.</p>
               </div>
               <div className="lp-feature-card">
-                <div className="lp-feature-icon"><i className="fas fa-chart-line"></i></div>
-                <h3>Analytics &amp; Reports</h3>
-                {/* Was "most-viewed items" — there is no such report. The six
-                    that exist: dashboard, most-cited, most-searched,
-                    by-department, by-year, users-online. */}
-                <p>Staff see most-cited works, most-searched keywords, and usage by department, year, and hour — each exportable.</p>
+                <div className="lp-feature-icon"><i className="fas fa-diagram-project"></i></div>
+                <h3>Discover Related Work</h3>
+                {/* Real, and previously unadvertised: findRelatedTheses() ranks
+                    by actual keyword/abstract overlap, with same-category as a
+                    baseline — not merely "same department". */}
+                <p>Every thesis points you to related ones, ranked by what they actually share — the keywords and ideas inside them, not just the same department.</p>
               </div>
             </div>
           </div>
