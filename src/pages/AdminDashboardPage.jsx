@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { reportsApi } from '../api/admin'
+import { categoryCode, categoryName } from '../utils/category'
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState(null)
@@ -63,12 +64,15 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="panel-grid-2">
-        {/* Collections by Department bar chart */}
+        {/* Was "Collections by Department" — the categories stopped being only
+            departments (Faculty Research, Institutional Publications, Special
+            Boholano Creations), the same reason the landing page's grid was
+            renamed. This counts items per collection, so say that. */}
         <div className="panel">
           <div className="panel-header">
             <div className="panel-title">
               <i className="fas fa-chart-bar" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Collections by Department
+              Items by Collection
             </div>
           </div>
           <div className="panel-body">
@@ -84,8 +88,11 @@ export default function AdminDashboardPage() {
                   >
                     <span className="bar-value">{item.total}</span>
                   </div>
-                  <span className="bar-label">
-                    {item.category?.name || `Cat ${item.category_id}`}
+                  {/* The code, not the name: no bar is wide enough for "College
+                      of Business and Management - Hospitality", and a name that
+                      wrapped used to lift its own bar off the baseline. */}
+                  <span className="bar-label" title={categoryName(item.category)}>
+                    {categoryCode(item.category) || `Cat ${item.category_id}`}
                   </span>
                 </div>
               ))}

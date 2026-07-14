@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { reportsApi } from '../api/admin'
 import { useToast } from '../components/Toast'
+import { categoryCode, categoryName } from '../utils/category'
 
+// The `value`s are the backend's route segments and must not change. Only the
+// labels do: a "collection" IS a category now, so "Collections by Department"
+// read as though it grouped collections by some other thing. Both of these count
+// ITEMS — theses — and that is what they now say.
 const REPORT_TYPES = [
   { value: 'dashboard',      label: 'Dashboard Summary' },
   { value: 'most-cited',     label: 'Most Cited Theses' },
-  { value: 'by-department',  label: 'Collections by Department' },
-  { value: 'by-year',        label: 'Collections by Year' },
+  { value: 'by-department',  label: 'Items by Collection' },
+  { value: 'by-year',        label: 'Items by Year' },
   { value: 'most-searched',  label: 'Most Searched Keywords' },
   { value: 'users-online',   label: 'Users Online' },
 ]
@@ -216,12 +221,14 @@ export default function ReportsPage() {
       </div>
 
       <div className="panel-grid-2">
-        {/* By Department */}
+        {/* Items per collection — see AdminDashboardPage: the categories are no
+            longer only departments, and the axis shows the code because no bar
+            is wide enough for a full college name. */}
         <div className="panel">
           <div className="panel-header">
             <div className="panel-title">
               <i className="fas fa-chart-bar" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Collections by Department
+              Items by Collection
             </div>
           </div>
           <div className="panel-body">
@@ -232,7 +239,9 @@ export default function ReportsPage() {
                   <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxDept) * 100)}%` }}>
                     <span className="bar-value">{item.total}</span>
                   </div>
-                  <span className="bar-label">{item.category?.name || `#${item.category_id}`}</span>
+                  <span className="bar-label" title={categoryName(item.category)}>
+                    {categoryCode(item.category) || `#${item.category_id}`}
+                  </span>
                 </div>
               ))}
             </div>
@@ -244,7 +253,7 @@ export default function ReportsPage() {
           <div className="panel-header">
             <div className="panel-title">
               <i className="fas fa-chart-line" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Collections by Year
+              Items by Year
             </div>
           </div>
           <div className="panel-body">

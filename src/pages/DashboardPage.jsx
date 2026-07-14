@@ -235,12 +235,12 @@ export default function DashboardPage() {
         <div className="panel-header">
           <div className="panel-title">
             <i className="fas fa-sitemap" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-            Browse by Department
+            Browse by Collection
           </div>
         </div>
         <div className="panel-body">
           {categories.length === 0 && !loading && (
-            <div className="text-muted" style={{ padding: 20 }}>No departments yet.</div>
+            <div className="text-muted" style={{ padding: 20 }}>No collections yet.</div>
           )}
           <div className="page-nav-grid">
             {categories.map(c => (

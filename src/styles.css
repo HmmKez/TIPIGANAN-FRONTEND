@@ -1645,22 +1645,38 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   border-bottom: 1px solid var(--border-light);
 }
 
+/* Two rows: the plotting area, then a label strip of a FIXED height.
+ *
+ * This was a flex column holding the bar and the label as siblings, so the bar's
+ * bottom edge rested on top of whatever the label happened to be. A collection
+ * whose name wrapped to two lines had a taller label, which shoved its bar a
+ * line-height further up than its neighbours — bars stopped sharing a baseline
+ * and the chart misread the data, since a bar's apparent height no longer meant
+ * only its value.
+ *
+ * A fixed-height label row makes every column's plotting area identical, so the
+ * bars sit on one baseline no matter what they are called. The bar's percentage
+ * height now resolves against the 1fr row (the plot), not the whole column, so
+ * the tallest bar fills the plot exactly instead of overrunning into the label.
+ */
 .bar-col {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 1fr 18px;
+  align-items: end;
+  justify-items: center;
   gap: 6px;
   height: 100%;
 }
 
 .bar {
   width: 100%;
+  align-self: end;
   background: linear-gradient(180deg, var(--primary-blue-light), var(--primary-blue));
   border-radius: 4px 4px 0 0;
   position: relative;
   transition: opacity 0.2s;
-  margin-top: auto;
 }
 
 .bar:hover { opacity: 0.85; }
@@ -1675,10 +1691,18 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   color: var(--text-primary);
 }
 
+/* Height is pinned by the grid row above; nowrap guarantees it can never grow to
+   a second line and re-introduce the uneven baseline. Long collection names are
+   shown as their code, with the full name on hover. */
 .bar-label {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 500;
+  line-height: 18px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Donut "fake" */
