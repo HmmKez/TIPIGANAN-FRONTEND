@@ -171,7 +171,11 @@ export default function ThesisDetail() {
 
       <div className="notice-banner">
         <i className="fas fa-info-circle" />
-        <span>This thesis is available for online reading only. Downloading, printing, and screenshots are disabled.</span>
+        {/* Not "screenshots are disabled" — a browser cannot disable a
+            screenshot, and a reader who tries Win+Shift+S once will disbelieve
+            everything else on this banner. The watermark is the real control,
+            and saying so is the stronger deterrent anyway. */}
+        <span>This thesis is available for online reading only. Downloading, printing, and copying are disabled, and every page is watermarked with your name — any screenshot is traceable to your account.</span>
       </div>
 
       <div className="panel">

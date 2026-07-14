@@ -280,12 +280,17 @@ export default function BrowsePage() {
             </div>
           </div>
 
-          {/* Security notice — matches mockup */}
+          {/* Security notice. Deliberately does NOT claim screenshots are
+              disabled — they cannot be, in any browser. Every page is watermarked
+              with the reader's identity instead, which is both true and a better
+              deterrent than a promise a reader can disprove in one keystroke. */}
           <div className="notice-banner">
             <i className="fas fa-shield-alt"></i>
             <span>
-              <b>Academic Use Only:</b> Downloading, printing, copying, and screenshots are disabled
-              to protect intellectual property. For citation purposes, please use the provided citation format.
+              <b>Academic Use Only:</b> Downloading, printing, and copying are disabled to protect
+              intellectual property, and every page you open is watermarked with your name — any
+              screenshot is traceable to your account. For citation purposes, please use the
+              provided citation format.
             </span>
           </div>
 

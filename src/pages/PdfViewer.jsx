@@ -70,7 +70,16 @@ export default function PdfViewer() {
     const onKey = (e) => {
       const k = e.key.toLowerCase()
       if ((e.ctrlKey || e.metaKey) && ['p','s','c'].includes(k)) stop(e)
-      if (k === 'printscreen') { navigator.clipboard?.writeText('TIPIGANAN — screenshots are disabled.').catch(() => {}); stop(e) }
+      // Overwriting the clipboard defeats a PrintScreen-then-paste, which is a
+      // real (if partial) mitigation. The message itself must stay honest: this
+      // does NOT stop Win+Shift+S, the Snipping Tool, or a phone camera. The
+      // watermark is what actually protects the document, so say that.
+      if (k === 'printscreen') {
+        navigator.clipboard?.writeText(
+          'TIPIGANAN — this document is watermarked. Any screenshot is traceable to your account.'
+        ).catch(() => {})
+        stop(e)
+      }
       if (k === 'f12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && k === 'i')) stop(e)
     }
     const onBlur = () => setBlur(true)

@@ -99,10 +99,20 @@ const landingStyles = `
   }
   .lp-stat-strip .value { font-size:36px; font-weight:800; margin-bottom:4px; }
   .lp-stat-strip .label { font-size:12px; opacity:.9; text-transform:uppercase; letter-spacing:1px; font-weight:600; }
-  .lp-features-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:24px; }
+  /* Six cards on a FIXED three-column grid, so they always land 3 + 3.
+     auto-fit was packing as many 260px columns as the viewport allowed — five
+     on a wide screen — leaving a ragged 4 + 2 (or 5 + 1) final row. A fixed
+     column count is what makes the rows uniform at every width; the breakpoints
+     below step it down to 2 and then 1, which still divide six evenly. */
+  .lp-features-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:24px; }
+  @media (max-width: 1024px) { .lp-features-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .lp-features-grid { grid-template-columns: 1fr; } }
   .lp-feature-card {
     background:#fff; border:1px solid #E5E8F0; border-radius:16px; padding:32px 24px;
     text-align:center; transition: all .3s;
+    /* Equal-height cards regardless of how long the copy runs, so a row never
+       looks lopsided. */
+    display:flex; flex-direction:column;
   }
   .lp-feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(52,95,207,.14); border-color: rgba(52,95,207,.3); }
   .lp-feature-icon { width:60px; height:60px; margin: 0 auto 18px; border-radius:16px;
@@ -436,21 +446,37 @@ export default function LandingPage() {
           <div className="lp-container">
             <h2>Built for Academic Excellence</h2>
             <p className="subtitle">Everything you need to discover, read, and preserve scholarly work at Mater Dei College.</p>
+            {/* Six cards, three per row. Every claim below is one the system
+                actually delivers — see the notes on the two that were not. */}
             <div className="lp-features-grid">
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-search"></i></div>
                 <h3>Powerful Search</h3>
-                <p>Multi-field search across title, author, adviser, keywords, and full-text OCR content.</p>
+                {/* Was "...and full-text OCR content". Nothing stores or indexes
+                    the full text: Thesis::toSearchableArray indexes title,
+                    authors, adviser, abstract and keywords, and OCR writes only
+                    the abstract and keywords back. */}
+                <p>Search titles, authors, advisers, abstracts, and keywords at once — typo-tolerant, and still working even if the search engine goes down.</p>
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-shield-alt"></i></div>
                 <h3>Secure Viewing</h3>
-                <p>View-only PDF access with dynamic watermarks. Downloads, printing, and screenshots disabled.</p>
+                {/* Was "...screenshots disabled". A browser cannot disable a
+                    screenshot — the viewer blocks Ctrl+P/S/C, right-click, F12
+                    and the print dialog, but nothing stops Win+Shift+S or a
+                    phone camera. The watermark is the actual protection, so say
+                    that instead of promising something we cannot enforce. */}
+                <p>Read-only in the browser. Downloading, printing, copying, and right-click are blocked, and every page is watermarked with the reader's identity.</p>
+              </div>
+              <div className="lp-feature-card">
+                <div className="lp-feature-icon"><i className="fas fa-file-import"></i></div>
+                <h3>Scanned Works, Readable</h3>
+                <p>Image-only scans of older manuscripts are read by OCR, so their abstract and keywords are recovered and become searchable like any other item.</p>
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-bookmark"></i></div>
                 <h3>Personal Library</h3>
-                <p>Bookmark items, track reading history, and pick up right where you left off.</p>
+                <p>Bookmark items, keep a private reading history, and pick up right where you left off.</p>
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-quote-right"></i></div>
@@ -459,13 +485,11 @@ export default function LandingPage() {
               </div>
               <div className="lp-feature-card">
                 <div className="lp-feature-icon"><i className="fas fa-chart-line"></i></div>
-                <h3>Analytics & Reports</h3>
-                <p>Administrators access usage trends, most-viewed items, and departmental analytics.</p>
-              </div>
-              <div className="lp-feature-card">
-                <div className="lp-feature-icon"><i className="fas fa-university"></i></div>
-                <h3>MDC-Wide Coverage</h3>
-                <p>Content from every MDC department: CAST, CCJ, COE, CON, CABM, Graduate Studies, and more.</p>
+                <h3>Analytics &amp; Reports</h3>
+                {/* Was "most-viewed items" — there is no such report. The six
+                    that exist: dashboard, most-cited, most-searched,
+                    by-department, by-year, users-online. */}
+                <p>Staff see most-cited works, most-searched keywords, and usage by department, year, and hour — each exportable.</p>
               </div>
             </div>
           </div>
