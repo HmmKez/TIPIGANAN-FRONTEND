@@ -2306,12 +2306,16 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   font-family: Helvetica, Arial, sans-serif;
 }
 
-/* Small and faint enough to read straight through. It only has to survive a
-   screenshot legibly enough to identify the account — it does not need to be
-   read comfortably while the document is. */
+/* Small, but it still has to be SEEN — a mark nobody notices deters nobody, and
+   it has to survive a screenshot legibly enough to name the account. Shrinking
+   this to 8px and fading it to 0.16 in one step made it effectively invisible;
+   the size is what keeps it out of the way of the text, so the opacity carries
+   the visibility instead. The bump to 600 matters more than it looks: at 8px,
+   thin red glyphs on white lose their strokes to antialiasing long before the
+   colour runs out. */
 .wm-sub {
   font-size: 8px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.2px;
-  color: rgba(255, 0, 0, 0.16);
+  color: rgba(255, 0, 0, 0.38);
 }
