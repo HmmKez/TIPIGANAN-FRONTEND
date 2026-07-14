@@ -427,6 +427,13 @@ input, select, textarea { font-family: inherit; }
 .main-wrap {
   margin-left: 0;
   flex: 1;
+  /* A flex item's default min-width:auto refuses to shrink below its content,
+     so the widest thing inside (the topbar's row of buttons, a long keyword tag)
+     set a hard floor on this column — 444px on a 375px phone. The page then laid
+     out at 444px inside a 375px viewport: it scrolled sideways and everything
+     past the fold looked cut off. min-width:0 lets the column take the width it
+     is actually given and reflow its contents to fit. */
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -460,6 +467,7 @@ input, select, textarea { font-family: inherit; }
   gap: 16px;
   font-size: 12.5px;
   color: var(--text-label);
+  min-width: 0; /* yields space to the actions on the right rather than overflowing */
 }
 
 .term-badge {
@@ -571,6 +579,7 @@ input, select, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0; /* Home / Sign In / Register stay whole; the left side gives way */
 }
 
 .topbar-icon {
@@ -2024,12 +2033,17 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   border: none; outline: none; background: transparent;
   font-size: 13.5px; color: var(--text-primary); width: 100%; font-family: inherit;
 }
-.results-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.results-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .filter-select {
   border: 1px solid var(--border-medium); border-radius: 8px;
   padding: 7px 12px; font-size: 12.5px; color: var(--text-secondary);
   background: var(--bg-white); outline: none; cursor: pointer;
   transition: border-color .15s; font-family: inherit;
+  /* A <select> is intrinsically as wide as its longest <option>, and the
+     category names run to "College of Arts, Sciences, and Technology" — which
+     alone forced this row to 346px and pushed the page past a phone's viewport.
+     Cap it and let the label truncate; the full text is still there once opened. */
+  min-width: 0; max-width: 100%; text-overflow: ellipsis;
 }
 .filter-select:focus { border-color: var(--primary-blue); }
 

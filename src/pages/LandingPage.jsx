@@ -14,7 +14,17 @@ const landingStyles = `
     display:flex; align-items:center; justify-content:space-between;
     position:sticky; top:0; z-index:1000;
   }
-  .lp-logo-area { display:flex; align-items:center; gap:16px; }
+  /* min-width:0 is what actually lets this shrink. A flex item defaults to
+     min-width:auto — it refuses to go narrower than its content — so on a phone
+     the logo + wordmark and the two auth buttons together set a hard ~456px
+     floor on the navbar, and therefore on the whole document. Every section then
+     laid out 456px wide inside a 375px viewport, which is why the page could be
+     scrolled sideways and its content looked cut off. Letting this side give way
+     (and truncating the wordmark as the last resort) means the navbar can always
+     fit, at any width. */
+  .lp-logo-area { display:flex; align-items:center; gap:16px; min-width:0; }
+  .lp-brand-text { min-width:0; }
+  .lp-nav-actions { flex-shrink:0; }
   /* Inset ~11.5% so the landscape badge fits wholly inside the round plate
      rather than being clipped by it — see .sidebar-mdc-logo in styles.css. */
   .lp-logo-img { width:56px; height:56px; object-fit:contain; border-radius:50%;
@@ -26,8 +36,10 @@ const landingStyles = `
     background: linear-gradient(135deg, #345FCF, #2A4FB5);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     letter-spacing:-.5px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .lp-brand-sub { font-size:9px; font-weight:600; color:#8A8A8A; letter-spacing:1.2px; text-transform:uppercase; }
+  .lp-brand-sub { font-size:9px; font-weight:600; color:#8A8A8A; letter-spacing:1.2px; text-transform:uppercase;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .lp-nav-links { display:flex; gap:36px; align-items:center; }
   .lp-nav-links a { font-size:14px; font-weight:500; color:#4A4A4A; text-decoration:none; transition: color .2s; }
   .lp-nav-links a:hover { color:#345FCF; }
@@ -207,13 +219,69 @@ const landingStyles = `
   .lp-footer-bottom { max-width:1280px; margin:0 auto; border-top:1px solid #2A2F3E; padding-top:20px; text-align:center; font-size:12px; }
 
   @media (max-width: 768px) {
-    .lp-navbar { padding: 0 20px; }
+    .lp-navbar { padding: 0 20px; height:68px; }
     .lp-nav-links { display:none; }
-    .lp-hero { padding: 80px 20px 90px; }
+    .lp-logo-area { gap:12px; }
+    .lp-logo-img { width:44px; height:44px; padding:5px; }
+    .lp-divider { display:none; }
+    .lp-brand-main { font-size:17px; }
+
+    .lp-hero { padding: 72px 20px 84px; }
     .lp-hero h1 { font-size: 34px; }
-    .lp-section { padding: 60px 20px; }
-    .lp-footer-grid { grid-template-columns: 1fr; }
-    .lp-cta-section { padding: 60px 20px; }
+    .lp-hero p { font-size:15px; }
+
+    /* Was 48px of side padding and an auto-fit grid whose 180px minimum could
+       only ever resolve to ONE column on a phone — the four figures became a
+       four-storey tower. A fixed 2x2 keeps the strip a strip. */
+    .lp-stat-strip { padding: 32px 20px; grid-template-columns: repeat(2, 1fr); gap:26px 16px; }
+    .lp-stat-strip .value { font-size:28px; }
+    .lp-stat-strip .label { font-size:11px; letter-spacing:.6px; }
+
+    .lp-section { padding: 56px 20px; }
+    .lp-section h2 { font-size:27px; }
+    .lp-section .subtitle { font-size:14px; margin-bottom:34px; }
+
+    .lp-cta-section { padding: 56px 20px; }
+    .lp-cta-section h2 { font-size:27px; }
+    .lp-cta-section p { font-size:15px; }
+
+    .lp-footer { padding: 40px 20px 20px; }
+    .lp-footer-grid { grid-template-columns: 1fr; gap:28px; }
+  }
+
+  @media (max-width: 480px) {
+    .lp-navbar { padding: 0 14px; }
+    .lp-logo-img { width:38px; height:38px; }
+    .lp-brand-main { font-size:15px; }
+
+    /* The pill's 24px of side padding and its border are pure decoration next
+       to the ~50px they cost. Sign In becomes a plain text link — the standard
+       mobile pattern — which buys back exactly the room "Get Started" needs to
+       stay a real, tappable button instead of hanging off the edge. */
+    .lp-nav-actions { gap:14px; }
+    .lp-btn-outline {
+      /* Keeps a finger-sized tap target even though the pill's chrome is gone. */
+      border:none; background:none; padding:9px 4px; font-size:13px; color:#345FCF;
+    }
+    .lp-btn-outline:hover { background:none; }
+    .lp-btn-primary { padding:10px 16px; font-size:12.5px; }
+    /* Decorative only — the labels already say what these do. */
+    .lp-nav-actions i { display:none; }
+
+    .lp-hero h1 { font-size:28px; letter-spacing:-.5px; }
+    /* Side by side they no longer fit, so they wrap — and wrapped, two pills of
+       different widths look like a mistake rather than a pair. Stack them and
+       let both fill the column so they read as equals. */
+    .lp-hero-actions { flex-direction:column; align-items:stretch; gap:10px; }
+    .lp-hero-cta, .lp-hero-secondary {
+      padding:14px 22px; font-size:13.5px; justify-content:center;
+    }
+    .lp-cta-buttons { flex-direction:column; align-items:stretch; }
+
+    .lp-feature-card { padding:26px 20px; }
+    .lp-dept-card { height:190px; }
+    .lp-coll-picker { padding:14px; }
+    .lp-coll-list { grid-template-columns: 1fr; }
   }
 `
 
@@ -363,7 +431,7 @@ export default function LandingPage() {
           <div className="lp-logo-area">
             <img src={MDC_LOGO} alt="MDC" className="lp-logo-img" />
             <div className="lp-divider"></div>
-            <div>
+            <div className="lp-brand-text">
               <div className="lp-brand-main">TIPIGANAN</div>
               <div className="lp-brand-sub">MDC Repository</div>
             </div>
