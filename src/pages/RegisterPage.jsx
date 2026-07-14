@@ -88,6 +88,11 @@ export default function RegisterPage() {
 
       <div className="auth-right">
         <div className="auth-card" style={{maxWidth:480}}>
+          {/* Only rendered on phones, where .auth-left (and the back link it
+              carries) is hidden. */}
+          <Link to="/" className="auth-back-mobile">
+            <i className="fas fa-arrow-left"></i> Back to Home
+          </Link>
           <h2>Create Account</h2>
           <p className="sub">Register as a student or teacher</p>
 

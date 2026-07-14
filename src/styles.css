@@ -1199,8 +1199,29 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .checkbox-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .checkbox-row a { color: var(--primary-blue); }
 
+/* The "Back to Home" link lives in .auth-left — which is hidden below 900px.
+   That left anyone who opened Login or Register on a phone with no way back to
+   the landing page at all (the browser's back button only helps if they arrived
+   from it). This one sits inside the card and appears exactly when the panel
+   carrying the other one disappears, so there is always exactly one. */
+.auth-back-mobile { display: none; }
+
 @media (max-width: 900px) {
   .auth-left { display: none; }
+
+  .auth-back-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 20px;
+    padding: 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .auth-back-mobile:hover { color: var(--primary-blue); }
 }
 
 @media (max-width: 480px) {

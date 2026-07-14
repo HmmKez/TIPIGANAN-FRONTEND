@@ -65,6 +65,11 @@ export default function LoginPage() {
 
       <div className="auth-right">
         <div className="auth-card">
+          {/* Only rendered on phones, where .auth-left (and the back link it
+              carries) is hidden. */}
+          <Link to="/" className="auth-back-mobile">
+            <i className="fas fa-arrow-left"></i> Back to Home
+          </Link>
           <h2>Welcome Back</h2>
           <p className="sub">Sign in to access the repository</p>
 
