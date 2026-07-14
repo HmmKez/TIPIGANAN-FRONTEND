@@ -150,6 +150,24 @@ export default function PdfViewer() {
   const zoomOut = () => setZoom(z => Math.max(0.4, +(z - 0.15).toFixed(2)))
   const zoomReset = () => setZoom(1)
 
+  // A PDF page at 100% is ~612 CSS px wide — it cannot fit a 375px phone, so the
+  // viewer opened every document already overflowing. Horizontal scrolling now
+  // works, but the first thing a reader sees should still be a whole page, so
+  // shrink the initial zoom to whatever fits. Runs once, off page 1's real
+  // dimensions, and only ever shrinks — a desktop canvas is wider than the page,
+  // so this leaves it at 100%.
+  const didFit = useRef(false)
+  const fitToWidth = (page) => {
+    if (didFit.current || !mainRef.current) return
+    const pageWidth = page?.originalWidth
+    if (!pageWidth) return
+    didFit.current = true
+    const available = mainRef.current.clientWidth - 16 // breathing room, not flush
+    if (available > 0 && available < pageWidth) {
+      setZoom(Math.max(0.4, +(available / pageWidth).toFixed(2)))
+    }
+  }
+
   return (
     <div style={S.shell}>
       {/* ── TOP TOOLBAR ── */}
@@ -244,37 +262,43 @@ export default function PdfViewer() {
           )}
 
           {file && (
-            <Document file={file}
-              onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-              onLoadError={() => setError('Could not load the PDF.')}
-              loading={<div style={S.loadingBox}><i className="fas fa-spinner fa-spin" style={{ fontSize: 24, color: 'var(--primary-blue-light)' }} /></div>}>
-              {Array.from({ length: numPages }, (_, i) => (
-                <div key={i} data-page={i + 1} ref={el => { if (el) pageRefs.current[i + 1] = el }} style={S.pageWrap}>
-                  <Page
-                    pageNumber={i + 1}
-                    scale={zoom}
-                    renderAnnotationLayer={false}
-                    renderTextLayer={false}
-                    onRenderSuccess={() => { if (i === 0) setPage(1) }}
-                  />
-                  {/* Watermarked per page, not once over the whole scroll
-                      container — the container's own box is only as tall as
-                      the viewport, so a single absolutely-positioned overlay
-                      only ever covers whatever's scrolled to the top (page 1)
-                      and scrolls away with it. Every page needs its own mark
-                      so a screenshot of any single page still shows it. */}
-                  <Watermark thesisId={thesisId} />
-                </div>
-              ))}
-            </Document>
+            <div style={S.canvasTrack}>
+              <Document file={file}
+                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                onLoadError={() => setError('Could not load the PDF.')}
+                loading={<div style={S.loadingBox}><i className="fas fa-spinner fa-spin" style={{ fontSize: 24, color: 'var(--primary-blue-light)' }} /></div>}>
+                {Array.from({ length: numPages }, (_, i) => (
+                  <div key={i} data-page={i + 1} ref={el => { if (el) pageRefs.current[i + 1] = el }} style={S.pageWrap}>
+                    <Page
+                      pageNumber={i + 1}
+                      scale={zoom}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                      onLoadSuccess={i === 0 ? fitToWidth : undefined}
+                      onRenderSuccess={() => { if (i === 0) setPage(1) }}
+                    />
+                    {/* Watermarked per page, not once over the whole scroll
+                        container — the container's own box is only as tall as
+                        the viewport, so a single absolutely-positioned overlay
+                        only ever covers whatever's scrolled to the top (page 1)
+                        and scrolls away with it. Every page needs its own mark
+                        so a screenshot of any single page still shows it. */}
+                    <Watermark thesisId={thesisId} />
+                  </div>
+                ))}
+              </Document>
+            </div>
           )}
         </div>
       </div>
 
       {/* ── STATUS BAR ── */}
       <div style={S.statusBar}>
-        <span><i className="fas fa-shield-alt" style={{ marginRight: 5 }} />Watermarked · view only</span>
-        <span>Downloading, printing, and copying are disabled</span>
+        <span className="pdf-status-main">
+          <i className="fas fa-shield-alt" style={{ marginRight: 5 }} />Watermarked · view only
+        </span>
+        {/* Dropped on phones — see .pdf-status-detail. */}
+        <span className="pdf-status-detail">Downloading, printing, and copying are disabled</span>
       </div>
     </div>
   )
@@ -352,11 +376,25 @@ const S = {
   thumbLabel: {
     textAlign: 'center', color: 'rgba(255,255,255,0.55)', fontSize: 11, padding: '3px 0 2px',
   },
+  // Centering moved OFF the scroll container and onto the track below. When a
+  // flex container centers a child that is wider than itself, the overflow is
+  // split evenly between both sides — but scrollLeft cannot go below 0, so the
+  // left half becomes permanently unreachable. That is why part of a zoomed
+  // page was cut off with no way to scroll back to it.
   canvas: {
-    flex: 1, overflowY: 'auto', overflowX: 'auto',
+    flex: 1, overflow: 'auto',
     background: '#2A2D3A', padding: '24px 0',
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
     position: 'relative',
+    WebkitOverflowScrolling: 'touch',
+  },
+  // width:fit-content + min-width:100% is what makes both cases work off one
+  // rule: narrower than the viewport, this stretches to 100% and centres the
+  // pages inside it; wider, it grows to the page's own width, so the pages sit
+  // flush at its left edge and every part of them is reachable by scrolling
+  // right from 0.
+  canvasTrack: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    width: 'fit-content', minWidth: '100%',
   },
   canvasBlur: { filter: 'blur(12px)', pointerEvents: 'none' },
   pageWrap: {

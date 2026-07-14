@@ -1817,6 +1817,19 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   overflow: hidden;
 }
 
+/* The box above is a fixed 3/4 frame, but the <img> inside it had no rule at
+   all — so every cover rendered at its own intrinsic pixel size. A small
+   thumbnail sat lost in the middle of the frame while a full-resolution scan
+   burst out of it, which is why no two thesis covers looked the same size.
+   Fill the frame and crop to it: the frame is now what decides the size. */
+.detail-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top; /* a cover page's title sits at the top — keep it */
+  display: block;
+}
+
 .detail-cover .cover-label {
   position: absolute;
   bottom: 16px;
@@ -2234,6 +2247,17 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 @media (max-width: 992px) { .results-sidebar-panel { display: none; } }
 /* ===== Secure PDF Viewer — Watermark Overlay ===== */
+/* The viewer's status bar is a fixed 24px strip. On a phone its two labels have
+   nowhere near the room to sit side by side, so they wrapped inside a box too
+   short to hold them and printed straight over each other. Neither stays on one
+   line by accident, so pin both — and drop the second one, which is a detail the
+   first already implies ("view only"), rather than let it collide. */
+.pdf-status-main, .pdf-status-detail { white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .pdf-status-detail { display: none; }
+}
+
 .viewer-shell {
   display: flex;
   flex-direction: column;
