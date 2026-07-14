@@ -8,9 +8,12 @@
 // The MDC Library System logo — used on every visible brand surface.
 export const MDC_LOGO = '/images/mdc-library-system-logo.png'
 
-// The original MDC seal, kept DELIBERATELY for the PDF viewer's watermark and
-// nowhere else. The backend stamps the very same seal into the served PDF
-// (WatermarkService → resources/images/mdc-logo.png); if this diverged, the
-// on-screen overlay and the stamped page would show two different marks on the
-// same document. Change these two together or not at all.
-export const WATERMARK_LOGO = '/images/mdc-seal.png'
+// WATERMARK_LOGO ('/images/mdc-seal.png') used to live here for the viewer's
+// overlay, which repeated the seal in each of its six cells. The overlay no
+// longer draws a logo at all — the seal is stamped into the PDF itself, once,
+// by the backend (WatermarkService → resources/images/mdc-logo.png), which is
+// the copy that actually survives a screenshot. Nothing on the frontend needs
+// the seal any more, so the export is gone rather than left dangling.
+//
+// public/images/mdc-seal.png is kept on disk: it is the original MDC seal and
+// the backend's stamp must keep matching it.

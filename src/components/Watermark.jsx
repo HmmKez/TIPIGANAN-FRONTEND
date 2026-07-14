@@ -1,10 +1,14 @@
 import { currentUser } from '../api/auth'
-import { WATERMARK_LOGO } from '../config/branding'
 
 // The visible-in-browser watermark. This is the *frontend* layer — the
-// server-side WatermarkService already baked identity into the PDF stream,
-// so this is really just a UX cue and an additional deterrent against
-// screenshots. It sits absolutely-positioned over the PDF canvas.
+// server-side WatermarkService already baked the MDC seal into the PDF stream,
+// so this layer carries only the thing the server cannot know at stamp time:
+// WHO is looking at it, right now.
+//
+// It used to repeat a 96px seal in every cell as well. That was six more logos
+// on top of the one the server already stamps — the brand was never in doubt,
+// and they were the main thing crowding the page. The seal now lives in exactly
+// one place (the server's centred stamp) and this layer is identity only.
 
 export default function Watermark({ thesisId }) {
   const user = currentUser()
@@ -12,10 +16,8 @@ export default function Watermark({ thesisId }) {
     ? `${user.name} · ${user.email}`
     : 'TIPIGANAN · academic use only'
 
-  // A grid of repeated, rotated marks so cropping one instance still leaves
-  // others visible in any screenshot. Fewer/larger than a dense text grid —
-  // the logo alone reads as the brand, so it doesn't need many repeats to
-  // register; the identity stamp underneath is what's actually traceable.
+  // Still repeated rather than shown once: cropping a screenshot to a single
+  // paragraph must not be enough to cut the identity off it.
   const rows = 3
   const cols = 2
 
@@ -24,15 +26,12 @@ export default function Watermark({ thesisId }) {
       <div className="wm-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {Array.from({ length: rows * cols }).map((_, i) => (
           <div key={i} className="wm-cell">
-            <div className="wm-mark">
-              <img src={WATERMARK_LOGO} alt="" className="wm-logo" />
-              <div className="wm-text">
-                <span className="wm-sub">{stamp}</span>
-                <br />
-                <span className="wm-sub">
-                  Thesis #{thesisId} · {new Date().toLocaleString()}
-                </span>
-              </div>
+            <div className="wm-text">
+              <span className="wm-sub">{stamp}</span>
+              <br />
+              <span className="wm-sub">
+                Thesis #{thesisId} · {new Date().toLocaleString()}
+              </span>
             </div>
           </div>
         ))}

@@ -2297,20 +2297,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   padding: 40px 10px;
 }
 
-.wm-mark {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.wm-logo {
-  width: 96px;
-  height: 96px;
-  object-fit: contain;
-  opacity: 0.16;
-  margin-bottom: 8px;
-}
-
+/* .wm-mark and .wm-logo are gone with the six repeated 96px seals — the page
+   already carries the server's centred stamp, so this layer is identity only. */
 .wm-text {
   text-align: center;
   white-space: nowrap;
@@ -2318,8 +2306,12 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   font-family: Helvetica, Arial, sans-serif;
 }
 
+/* Small and faint enough to read straight through. It only has to survive a
+   screenshot legibly enough to identify the account — it does not need to be
+   read comfortably while the document is. */
 .wm-sub {
-  font-size: 10.5px;
+  font-size: 8px;
   font-weight: 500;
-  color: rgba(255, 0, 0, 0.2);
+  letter-spacing: 0.2px;
+  color: rgba(255, 0, 0, 0.16);
 }
