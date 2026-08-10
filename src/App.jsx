@@ -90,7 +90,12 @@ export default function App() {
 
         <Route path="/viewer/:token" element={<ProtectedRoute><PdfViewer /></ProtectedRoute>} />
         <Route path="/bookmarks" element={<InLayout><BookmarksPage /></InLayout>} />
-        <Route path="/favorites" element={<InLayout><BookmarksPage /></InLayout>} />
+        {/* /favorites used to render the same page under a second name, so the
+            feature had two live URLs. It now redirects, leaving /bookmarks as
+            the only canonical one while any existing link or browser bookmark
+            still lands somewhere real — same treatment /search got when it was
+            merged into /browse. */}
+        <Route path="/favorites" element={<Navigate to="/bookmarks" replace />} />
         <Route path="/history"   element={<InLayout><ReadingHistoryPage /></InLayout>} />
         <Route path="/profile"   element={<InLayout><ProfilePage /></InLayout>} />
 

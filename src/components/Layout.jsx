@@ -43,11 +43,16 @@ function getMenu(isAdmin, isGuest) {
     ] })
   }
 
-  // Favorites is available to every signed-in role — the blueprint has
+  // Bookmarking is available to every signed-in role — the blueprint has
   // Admin/Staff explicitly inheriting all Student/Teacher privileges,
   // bookmarking included.
+  //
+  // Labelled "Bookmarks", not "Favorites". The feature is called a bookmark
+  // everywhere else a user meets it — the button on a thesis says Bookmark,
+  // the page is headed My Bookmarks, the dashboard tile says My Bookmarks —
+  // so this nav item was the only place using a second name for one feature.
   menu.push({ section: 'ACCOUNT', items: [
-    { to: '/bookmarks', icon: 'fa-bookmark', label: 'Favorites' },
+    { to: '/bookmarks', icon: 'fa-bookmark', label: 'Bookmarks' },
     { to: '/profile', icon: 'fa-user-circle', label: 'My Profile' },
   ] })
 
