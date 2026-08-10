@@ -7,7 +7,17 @@ import Watermark from '../components/Watermark'
 // component (Watermark.jsx) and deliberately still shows the old seal.
 import { MDC_LOGO } from '../config/branding'
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+// The pdf.js worker is bundled with the app rather than fetched from unpkg.com.
+// Pulling it from a CDN made viewing a thesis silently depend on the public
+// internet — on a campus network that blocks unpkg, or offline, every PDF
+// would fail to open even though the file itself is served from our own
+// backend. The ?url suffix makes Vite emit the worker as its own asset and
+// hand back its hashed local path. pdfjs-dist is pinned in package.json to the
+// version react-pdf uses internally; a mismatch between the API and the worker
+// makes pdf.js refuse to load.
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker
 
 const HOVER_BG = 'rgba(255,255,255,0.12)'
 
