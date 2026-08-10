@@ -249,6 +249,12 @@ export default function BrowsePage() {
                 autoComplete="off"
               />
             </div>
+            {/* The MOBILE home for Department and Year. The sidebar owns both on
+                desktop and is hidden below 992px, so these take over there —
+                see the paired media queries in styles.css.
+                Sort is deliberately not repeated here: it belongs beside the
+                result count it reorders, which is where it now lives at every
+                width. */}
             <div className="results-controls">
               <select
                 className="filter-select"
@@ -267,15 +273,6 @@ export default function BrowsePage() {
               >
                 <option value="">All Years</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select
-                className="filter-select"
-                value={sort}
-                onChange={e => setSort(e.target.value)}
-              >
-                {SORT_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
               </select>
             </div>
           </div>
@@ -356,16 +353,11 @@ export default function BrowsePage() {
                       )}
                     </div>
                   ))}
-                  {categoryId && (
-                    <div style={{ marginTop: 8 }}>
-                      <button
-                        onClick={() => { setCategoryId(''); setPage(1) }}
-                        style={{ fontSize: 11, color: 'var(--primary-blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      >
-                        Clear department filter
-                      </button>
-                    </div>
-                  )}
+                  {/* No "clear department" link here. Removing one filter is
+                      already covered twice over — the active-filter chip above
+                      the results has its own X, and Reset Filters below clears
+                      everything. A third control for the same job was just more
+                      to read. */}
                 </div>
 
                 <div className="filter-divider"></div>

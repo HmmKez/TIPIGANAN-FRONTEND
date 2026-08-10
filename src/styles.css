@@ -2269,7 +2269,17 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   border-radius: 12px; margin-top: 6px; box-shadow: var(--shadow-sm);
 }
 
+/* Browse's Department and Year filters exist twice in the markup, and these two
+   rules are a MATCHED PAIR guaranteeing exactly one copy is visible at any
+   width: the sidebar on desktop, the top-bar dropdowns on mobile. Both used to
+   show on desktop, which is why the page looked like it had far more filters
+   than it has filters.
+   Change one breakpoint and you MUST change the other. Wrong in one direction
+   and every filter renders twice; wrong in the other and phone users lose
+   filtering entirely, with nothing on screen to hint that it ever existed. */
 @media (max-width: 992px) { .results-sidebar-panel { display: none; } }
+@media (min-width: 993px) { .results-controls      { display: none; } }
+
 /* ===== Secure PDF Viewer — Watermark Overlay ===== */
 /* The viewer's status bar is a fixed 24px strip. On a phone its two labels have
    nowhere near the room to sit side by side, so they wrapped inside a box too
