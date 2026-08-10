@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { thesesApi, categoriesApi } from '../api/admin'
 import { citationsApi } from '../api'
 import { useToast } from '../components/Toast'
@@ -47,7 +47,17 @@ const emptyForm = {
 export default function ThesisEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { notify } = useToast()
+
+  // A PDF the viewer can't open still uploads successfully (a file staff
+  // can't fix shouldn't be rejected outright), so the backend reports it
+  // instead. Set either by the upload page handing it over on redirect, or
+  // by a Replace File that introduced the same problem. Deliberately a
+  // dismissible banner rather than a toast: a reader hitting "Could not load
+  // the PDF" weeks later is the exact outcome this exists to prevent, so it
+  // must not disappear on its own before anyone has read it.
+  const [viewWarning, setViewWarning] = useState(location.state?.viewWarning || null)
 
   const [form, setForm] = useState(emptyForm)
   const [categories, setCategories] = useState([])
@@ -119,6 +129,15 @@ export default function ThesisEditPage() {
       setMlaText(mla?.citation_text || '')
     }).catch(() => {})
   }
+
+  // Consume the handed-over warning once. The browser keeps history state
+  // across a reload, so without this a refresh would resurrect a warning about
+  // a file the staff member may already have replaced.
+  useEffect(() => {
+    if (location.state?.viewWarning) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [])
 
   useEffect(() => {
     categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
@@ -199,6 +218,10 @@ export default function ThesisEditPage() {
       const newKeywords = t.keywords || ''
       setForm(prev => ({ ...prev, abstract: newAbstract, keywords: newKeywords }))
       loadFileVersions()
+
+      // Cleared as well as set: replacing a broken file with a good one has to
+      // take the warning away, or it would outlive the problem it describes.
+      setViewWarning(res.data.view_warning || null)
 
       // Option 2 — warn (don't auto-overwrite) when the new file's detected
       // content differs from, or is missing against, what's still on record
@@ -303,6 +326,31 @@ export default function ThesisEditPage() {
         </button>
       </div>
 
+      {viewWarning && (
+        <div
+          className="notice-banner warning"
+          style={{
+            marginBottom: 16,
+            alignItems: 'flex-start',
+            background: '#FDF3E3',
+            borderLeft: '4px solid #E0912F',
+          }}
+        >
+          <i className="fas fa-eye-slash" style={{ color: '#E0912F', marginTop: 2 }}></i>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>This item can’t be opened by readers yet</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>{viewWarning}</div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ flexShrink: 0 }}
+            onClick={() => setViewWarning(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {error && (
         <div className="notice-banner warning" style={{ marginBottom: 16 }}>
           <i className="fas fa-exclamation-triangle"></i> <span>{error}</span>

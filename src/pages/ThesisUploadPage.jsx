@@ -76,7 +76,19 @@ export default function ThesisUploadPage() {
 
       setSuccess(true)
       // Land on the edit page so staff can review/keep customizing citations.
-      setTimeout(() => navigate(newId ? `/admin/theses/${newId}/edit` : '/admin/collections'), 900)
+      // A PDF the viewer can't open still uploads successfully by design, so
+      // the warning rides along to the edit page — the one screen with a
+      // Replace File control, i.e. where it can actually be acted on. It is
+      // carried in navigation state rather than shown here because this page
+      // redirects away after 900ms, which isn't long enough to read it.
+      const viewWarning = res.data?.view_warning || null
+      setTimeout(
+        () => navigate(
+          newId ? `/admin/theses/${newId}/edit` : '/admin/collections',
+          viewWarning ? { state: { viewWarning } } : undefined,
+        ),
+        900,
+      )
     } catch (err) {
       const errs = err?.response?.data?.errors
       setError({ message: errs ? Object.values(errs).flat().join(' ') :
