@@ -132,7 +132,7 @@ export default function UserManagementPage() {
       }
       setPermsFor(updated)
       setUsers(us => us.map(u => (u.id === updated.id ? updated : u)))
-      notify(`${PERMISSION_LABELS[perm.name] || perm.name} ${checked ? 'granted to' : 'revoked from'} ${permsFor.name}.`, 'success')
+      notify(`${PERMISSION_LABELS[perm.name] || perm.name} ${checked ? 'granted to' : 'revoked from'} ${userLabel(permsFor)}.`, 'success')
     } catch (e) {
       notify(e?.response?.data?.message || 'Failed to update permission.', 'error')
     } finally {
@@ -198,7 +198,7 @@ export default function UserManagementPage() {
     try {
       await usersApi.remove(deleteFor.id)
       load()
-      notify(`${deleteFor.name}'s account was deleted.`, 'success')
+      notify(`${userLabel(deleteFor)}'s account was deleted.`, 'success')
     } catch (e) {
       notify(e?.response?.data?.message || 'Failed to delete account.', 'error')
     } finally {
@@ -620,7 +620,7 @@ export default function UserManagementPage() {
             </div>
             <form onSubmit={submitReset}>
               <div className="modal-body">
-                <p style={{ marginBottom: 16 }}>Set a new password for <b>{resetFor.name}</b>.</p>
+                <p style={{ marginBottom: 16 }}>Set a new password for <b>{userLabel(resetFor)}</b>.</p>
                 <div className="form-group">
                   <label className="form-label">New Password <span className="req">*</span></label>
                   <input type="password" className="form-control" required minLength="8"
@@ -653,7 +653,7 @@ export default function UserManagementPage() {
         <div className="modal-backdrop" onClick={() => setPermsFor(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><i className="fas fa-user-shield" style={{ color: 'var(--primary-blue)', marginRight: 8 }}></i>Permissions — {permsFor.name}</h3>
+              <h3><i className="fas fa-user-shield" style={{ color: 'var(--primary-blue)', marginRight: 8 }}></i>Permissions — {userLabel(permsFor)}</h3>
               <button className="btn-icon" onClick={() => setPermsFor(null)}><i className="fas fa-times"></i></button>
             </div>
             <div className="modal-body">
@@ -705,8 +705,8 @@ export default function UserManagementPage() {
         title={permConfirm?.checked ? 'Grant this permission?' : 'Revoke this permission?'}
         message={permConfirm && permsFor && (
           permConfirm.checked
-            ? `Grant "${PERMISSION_LABELS[permConfirm.perm.name] || permConfirm.perm.name}" to ${permsFor.name}? They will be able to use it immediately.`
-            : `Revoke "${PERMISSION_LABELS[permConfirm.perm.name] || permConfirm.perm.name}" from ${permsFor.name}?`
+            ? `Grant "${PERMISSION_LABELS[permConfirm.perm.name] || permConfirm.perm.name}" to ${userLabel(permsFor)}? They will be able to use it immediately.`
+            : `Revoke "${PERMISSION_LABELS[permConfirm.perm.name] || permConfirm.perm.name}" from ${userLabel(permsFor)}?`
         )}
         confirmLabel={permConfirm?.checked ? 'Grant' : 'Revoke'}
         onConfirm={confirmPermissionToggle}
@@ -718,7 +718,7 @@ export default function UserManagementPage() {
         icon="fa-user-slash"
         confirmStyle="danger"
         title="Delete this account?"
-        message={deleteFor && `Permanently delete ${deleteFor.name}'s account? This cannot be undone.`}
+        message={deleteFor && `Permanently delete ${userLabel(deleteFor)}'s account? This cannot be undone.`}
         confirmLabel={deleteBusy ? 'Deleting…' : 'Delete Account'}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteFor(null)}
