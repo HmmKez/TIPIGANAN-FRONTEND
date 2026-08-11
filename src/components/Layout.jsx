@@ -59,9 +59,14 @@ function getMenu(isAdmin, isGuest) {
   return menu
 }
 
-function initials(name) {
-  if (!name) return 'U'
-  return name.split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase()
+// Accepts whatever display_name resolves to, which for an account with no name
+// yet is the 5-digit ID number — splitting that on spaces yields one token, so
+// the avatar shows its first two digits rather than a lone letter.
+function initials(label) {
+  if (!label) return 'U'
+  const parts = String(label).trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return parts.map(s => s[0]).slice(0, 2).join('').toUpperCase()
 }
 
 // 768px matches the .sidebar mobile breakpoint in styles.css — on phone-width
@@ -247,10 +252,10 @@ export default function Layout({ children }) {
                   {avatarUrl(user) ? (
                     <img src={avatarUrl(user)} alt="" className="user-avatar user-avatar-img" />
                   ) : (
-                    <div className="user-avatar">{initials(user?.name)}</div>
+                    <div className="user-avatar">{initials(user?.display_name || user?.name)}</div>
                   )}
                   <div>
-                    <div className="user-name">{user?.name || 'User'}</div>
+                    <div className="user-name">{user?.display_name || user?.name || 'User'}</div>
                     <div className="user-role">{roleLabel}</div>
                   </div>
                 </Link>

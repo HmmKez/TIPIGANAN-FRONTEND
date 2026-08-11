@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { firstNameOf } from '../utils/userLabel'
 import { Link, useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { Loader, ErrorMessage } from '../components/Loader'
@@ -94,7 +95,7 @@ export default function DashboardPage() {
     if (continueReading.length === 3) break
   }
 
-  const firstName = user?.name?.split(' ')[0] || 'there'
+  const firstName = firstNameOf(user)
 
   // Count only what this reader can actually open. `theses_count` includes
   // archived theses, which are hidden from everyone — using it here made the

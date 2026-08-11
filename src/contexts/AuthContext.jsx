@@ -38,8 +38,8 @@ export function AuthProvider({ children }) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const login = async (email, password) => {
-    const res = await authApi.login(email, password)
+  const login = async (idNumber, password) => {
+    const res = await authApi.login(idNumber, password)
     const { token: t, user: u, permissions: p } = res.data
     localStorage.setItem('tipiganan_token', t)
     localStorage.setItem('tipiganan_user', JSON.stringify(u))

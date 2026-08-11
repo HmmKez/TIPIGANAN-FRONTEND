@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { userLabel } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { Loader, ErrorMessage } from '../components/Loader'
@@ -227,7 +228,7 @@ export default function ProfilePage() {
                     <img src={avatarUrl(user)} alt="" className="user-avatar user-avatar-img" style={{ width: 90, height: 90 }} />
                   ) : (
                     <div className="user-avatar" style={{ width: 90, height: 90, fontSize: 28, margin: 0, background: 'linear-gradient(135deg,#345FCF,#5A79E5)' }}>
-                      {initials(user.name)}
+                      {initials(userLabel(user))}
                     </div>
                   )}
                   <button type="button" className="avatar-upload-btn" title="Change profile picture"
@@ -242,7 +243,7 @@ export default function ProfilePage() {
                     Remove photo
                   </button>
                 )}
-                <h3 style={{ fontSize: 17, marginBottom: 4 }}>{user.name}</h3>
+                <h3 style={{ fontSize: 17, marginBottom: 4 }}>{userLabel(user)}</h3>
                 <div className="text-muted" style={{ fontSize: 13 }}>{user.email}</div>
                 <span className={`badge badge-${user.role === 'student' ? 'student' : user.role === 'staff' ? 'staff' : 'admin'}`} style={{ marginTop: 10, display: 'inline-block' }}>
                   {roleLabel(user.role)}

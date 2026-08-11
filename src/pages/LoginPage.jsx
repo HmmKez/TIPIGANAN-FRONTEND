@@ -5,7 +5,7 @@ import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
 import { MDC_LOGO } from '../config/branding'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [idNumber, setIdNumber] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -19,7 +19,7 @@ export default function LoginPage() {
     e.preventDefault()
     setError(''); setSubmitting(true)
     try {
-      const u = await login(email, password)
+      const u = await login(idNumber, password)
       const isAdmin = u.role === 'super_admin' || u.role === 'staff' || u.role === 'admin'
       const from = location.state?.from?.pathname
       navigate(from || (isAdmin ? '/admin' : '/dashboard'), { replace: true })
@@ -35,7 +35,7 @@ export default function LoginPage() {
         const msg = !err?.response
           ? 'Could not reach the server. Check that the backend is running and try again.'
           : err?.response?.data?.message
-            || err?.response?.data?.errors?.email?.[0]
+            || err?.response?.data?.errors?.id_number?.[0]
             || 'Invalid credentials'
         setError(msg)
       }
@@ -86,9 +86,16 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Email <span className="req">*</span></label>
-              <input type="email" className="form-control" placeholder="student@mdc.edu.ph"
-                     value={email} onChange={e => setEmail(e.target.value)} required />
+              <label className="form-label">ID Number <span className="req">*</span></label>
+              {/* inputMode=numeric brings up the number pad on a phone, while
+                  type stays "text" so a leading zero is preserved — type=number
+                  would strip it and turn ID 01234 into 1234. */}
+              <input type="text" className="form-control" placeholder="e.g. 12345"
+                     inputMode="numeric" pattern="\d{5}" maxLength={5}
+                     title="Your 5-digit school ID number"
+                     autoComplete="username"
+                     value={idNumber}
+                     onChange={e => setIdNumber(e.target.value.replace(/\D/g, ''))} required />
             </div>
             <div className="form-group">
               <label className="form-label">Password <span className="req">*</span></label>

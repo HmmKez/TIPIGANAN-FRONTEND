@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { userLabel } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import { usersApi, permissionsApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
@@ -6,7 +7,7 @@ import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { avatarUrl } from '../utils/avatar'
 
-const emptyCreate = { name: '', email: '', password: '', role: 'staff' }
+const emptyCreate = { id_number: '', name: '', email: '', password: '', role: 'staff' }
 
 // Staff get every other privilege (uploading, editing, categorizing, viewing
 // logs, exporting reports, viewing users, resetting passwords) automatically
@@ -122,7 +123,7 @@ export default function UserManagementPage() {
         let list = d.data || []
         if (q) {
           const s = q.toLowerCase()
-          list = list.filter(u => (u.name || '').toLowerCase().includes(s)
+          list = list.filter(u => (userLabel(u, '')).toLowerCase().includes(s)
             || (u.email || '').toLowerCase().includes(s))
         }
         if (tab === 'students')    list = list.filter(u => u.role === 'student' || u.role === 'teacher')
@@ -154,7 +155,7 @@ export default function UserManagementPage() {
       if (activating) await usersApi.activate(u.id)
       else await usersApi.deactivate(u.id)
       load()
-      notify(`${u.name} was ${activating ? 'activated' : 'deactivated'}.`, 'success')
+      notify(`${userLabel(u)} was ${activating ? 'activated' : 'deactivated'}.`, 'success')
     } catch (e) {
       notify(e?.response?.data?.message || 'Failed', 'error')
     } finally {
@@ -317,12 +318,18 @@ export default function UserManagementPage() {
                         <img src={avatarUrl(u)} alt="" className="user-avatar user-avatar-img" style={{ width: 36, height: 36 }} />
                       ) : (
                         <div className="user-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>
-                          {initials(u.name)}
+                          {initials(userLabel(u))}
                         </div>
                       )}
                       <div>
-                        <b>{u.name}</b>{me?.id === u.id && <span className="text-muted" style={{ fontSize: 11 }}> (you)</span>}<br />
-                        <small className="text-muted">{u.email}</small>
+                        <b>{userLabel(u)}</b>{me?.id === u.id && <span className="text-muted" style={{ fontSize: 11 }}> (you)</span>}<br />
+                        {/* The ID number is the login credential now, so staff
+                            need to see it — but not printed twice for accounts
+                            with no name yet, where the bold line above already
+                            IS the ID number. */}
+                        <small className="text-muted">
+                          {u.name && u.id_number ? <>{u.id_number} · </> : null}{u.email}
+                        </small>
                       </div>
                     </div>
                   </td>
@@ -407,8 +414,26 @@ export default function UserManagementPage() {
                   <span>This form creates <b>staff</b> or <b>super_admin</b> accounts only. Students and teachers should self-register.</span>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Full Name <span className="req">*</span></label>
+                  <label className="form-label">ID Number <span className="req">*</span></label>
+                  {/* text, not number, so a leading zero survives. */}
                   <input type="text" className="form-control" required
+                         inputMode="numeric" pattern="\d{5}" maxLength={5}
+                         placeholder="e.g. 12345"
+                         title="The staff member's 5-digit school ID number"
+                         value={createForm.id_number}
+                         onChange={e => setCreateForm({ ...createForm, id_number: e.target.value.replace(/\D/g, '') })} />
+                  <small className="text-muted" style={{ fontSize: 11 }}>
+                    This is what they will use to sign in.
+                  </small>
+                </div>
+                <div className="form-group">
+                  {/* Optional here, unlike self-registration: an admin creating
+                      a colleague's account usually knows their name, and there
+                      is no reason to discard it while waiting for the school's
+                      API. Blank falls back to the ID number. */}
+                  <label className="form-label">Full Name <span className="text-muted" style={{ fontWeight: 400 }}>(optional)</span></label>
+                  <input type="text" className="form-control"
+                         placeholder="Leave blank to show the ID number instead"
                          value={createForm.name}
                          onChange={e => setCreateForm({ ...createForm, name: e.target.value })} />
                 </div>
@@ -530,8 +555,8 @@ export default function UserManagementPage() {
         title={statusConfirm?.activating ? 'Activate this account?' : 'Deactivate this account?'}
         message={statusConfirm && (
           statusConfirm.activating
-            ? `${statusConfirm.user.name} will regain access and be able to sign in again.`
-            : `${statusConfirm.user.name} will be signed out and unable to sign in until reactivated.`
+            ? `${userLabel(statusConfirm.user)} will regain access and be able to sign in again.`
+            : `${userLabel(statusConfirm.user)} will be signed out and unable to sign in until reactivated.`
         )}
         confirmLabel={statusBusy ? 'Saving…' : (statusConfirm?.activating ? 'Activate' : 'Deactivate')}
         onConfirm={confirmStatusChange}

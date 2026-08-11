@@ -4,21 +4,18 @@ import { useAuth } from '../contexts/AuthContext'
 import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
 import { MDC_LOGO } from '../config/branding'
 
-const DEPARTMENTS = [
-  'CAST — College of Arts, Sciences & Teacher Education',
-  'CCJ — College of Criminal Justice',
-  'COE — College of Engineering',
-  'CON — College of Nursing',
-  'CABM-B — Business Management (Bachelor)',
-  'CABM-H — Hospitality Management',
-  'Graduate Studies',
-]
-
 export default function RegisterPage() {
   const [userType, setUserType] = useState('student')
+  // No name is collected. An account is identified by the school's 5-digit ID
+  // number, which is the key the school's API will use to look up the person's
+  // real name and details.
+  //
+  // `department` and the old free-text `student_id` were removed rather than
+  // kept: the register endpoint only ever validated name/email/password/role,
+  // so Laravel silently discarded both. Department in particular was a
+  // REQUIRED field that did nothing at all — the value never left the browser.
   const [form, setForm] = useState({
-    first_name: '', last_name: '', student_id: '', department: '',
-    email: '', password: '', password_confirmation: '',
+    id_number: '', email: '', password: '', password_confirmation: '',
   })
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState('')
@@ -38,13 +35,11 @@ export default function RegisterPage() {
     setSubmitting(true)
     try {
       await register({
-        name: `${form.first_name} ${form.last_name}`.trim(),
+        id_number: form.id_number,
         email: form.email,
         password: form.password,
         password_confirmation: form.password_confirmation,
         role: userType,
-        student_id: userType === 'student' ? form.student_id : undefined,
-        department: form.department || undefined,
       })
       navigate(userType === 'student' ? '/dashboard' : '/dashboard', { replace: true })
     } catch (err) {
@@ -125,37 +120,22 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">First Name <span className="req">*</span></label>
-                <input type="text" className="form-control" value={form.first_name}
-                       onChange={e => update('first_name', e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Last Name <span className="req">*</span></label>
-                <input type="text" className="form-control" value={form.last_name}
-                       onChange={e => update('last_name', e.target.value)} required />
-              </div>
-            </div>
-
-            {userType === 'student' && (
-              <div className="form-group">
-                <label className="form-label">Student ID <span className="req">*</span></label>
-                <input type="text" className="form-control" placeholder="2026-00001"
-                       value={form.student_id} onChange={e => update('student_id', e.target.value)}
-                       required={userType==='student'} />
-              </div>
-            )}
-
             <div className="form-group">
               <label className="form-label">
-                Department {userType === 'student' ? <span className="req">*</span> : <span className="req">(optional)</span>}
+                {userType === 'student' ? 'Student' : 'Teacher'} ID Number <span className="req">*</span>
               </label>
-              <select className="form-control" value={form.department}
-                      onChange={e => update('department', e.target.value)} required={userType==='student'}>
-                <option value="">— Select Department —</option>
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              {/* type stays "text" so a leading zero survives — type="number"
+                  would turn ID 01234 into 1234. inputMode gives phones the
+                  number pad anyway. */}
+              <input type="text" className="form-control" placeholder="e.g. 12345"
+                     inputMode="numeric" pattern="\d{5}" maxLength={5}
+                     title="Your 5-digit school ID number"
+                     value={form.id_number}
+                     onChange={e => update('id_number', e.target.value.replace(/\D/g, ''))}
+                     required />
+              <small className="text-muted" style={{ fontSize: 11 }}>
+                Your 5-digit school ID. This is what you'll use to sign in.
+              </small>
             </div>
 
             <div className="form-group">

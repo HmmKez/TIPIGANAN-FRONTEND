@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { userLabel } from '../utils/userLabel'
 import { Link, useNavigate } from 'react-router-dom'
 import { thesisReportsApi } from '../api/admin'
 import { useToast } from '../components/Toast'
@@ -106,7 +107,7 @@ export default function ReportedItemsPage() {
                   </td>
                   <td>
                     {r.user
-                      ? <><b>{r.user.name}</b><br /><small className="text-muted">{r.user.email}</small></>
+                      ? <><b>{userLabel(r.user)}</b><br /><small className="text-muted">{r.user.email}</small></>
                       : <span className="text-muted">Deleted user</span>}
                   </td>
                   <td className="text-muted" style={{ maxWidth: 260 }}>{r.reason || <i>No reason given</i>}</td>

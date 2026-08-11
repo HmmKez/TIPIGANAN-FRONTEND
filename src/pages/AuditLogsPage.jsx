@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { userLabel } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import { auditApi } from '../api/admin'
 import { useToast } from '../components/Toast'
@@ -58,7 +59,7 @@ export default function AuditLogsPage() {
           const s = q.toLowerCase()
           list = list.filter(l =>
             (l.description || '').toLowerCase().includes(s) ||
-            (l.user?.name || '').toLowerCase().includes(s) ||
+            (userLabel(l.user, '')).toLowerCase().includes(s) ||
             (l.ip_address || '').toLowerCase().includes(s) ||
             (l.action || '').toLowerCase().includes(s)
           )
@@ -222,7 +223,7 @@ export default function AuditLogsPage() {
                   <td>{l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
                   <td>
                     {l.user
-                      ? <><b>{l.user.name}</b><br /><small className="text-muted">{l.user.email}</small></>
+                      ? <><b>{userLabel(l.user)}</b><br /><small className="text-muted">{l.user.email}</small></>
                       : <span className="text-muted">System</span>}
                   </td>
                   <td>
@@ -275,7 +276,7 @@ export default function AuditLogsPage() {
             <div className="modal-body">
               <div className="detail-meta">
                 <div className="row"><b>Timestamp:</b> <span>{new Date(detail.created_at).toLocaleString()}</span></div>
-                <div className="row"><b>User:</b> <span>{detail.user?.name || 'System'} ({detail.user?.email || '—'})</span></div>
+                <div className="row"><b>User:</b> <span>{userLabel(detail.user, 'System')} ({detail.user?.email || '—'})</span></div>
                 <div className="row"><b>Action:</b> <span>{detail.action}</span></div>
                 <div className="row"><b>Target Type:</b> <span>{detail.target_type || '—'}</span></div>
                 <div className="row"><b>Target ID:</b> <span>{detail.target_id ?? '—'}</span></div>

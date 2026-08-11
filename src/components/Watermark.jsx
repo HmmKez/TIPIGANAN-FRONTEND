@@ -12,8 +12,14 @@ import { currentUser } from '../api/auth'
 
 export default function Watermark({ thesisId }) {
   const user = currentUser()
+  // display_name, not name. Names are no longer collected at registration —
+  // the school's API supplies them later — so `user.name` is null for new
+  // accounts and this would have stamped "null · email" on every page. The
+  // backend's display_name falls back to the ID number, which still identifies
+  // exactly one account. That matters more here than anywhere else: this stamp
+  // is the entire reason a leaked screenshot can be traced back to somebody.
   const stamp = user
-    ? `${user.name} · ${user.email}`
+    ? `${user.display_name || user.name || user.id_number} · ${user.email}`
     : 'TIPIGANAN · academic use only'
 
   // Still repeated rather than shown once: cropping a screenshot to a single
