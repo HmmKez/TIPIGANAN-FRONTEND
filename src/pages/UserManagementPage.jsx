@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { userLabel } from '../utils/userLabel'
+import { userLabel, initialsOf as initials } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import { usersApi, permissionsApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
@@ -28,8 +28,6 @@ function canDelete(actor, target, hasPermission) {
   if (actor.role === 'super_admin') return true
   return hasPermission('delete_accounts') && (target.role === 'student' || target.role === 'teacher')
 }
-
-function initials(n) { return (n || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase() }
 
 function roleBadgeClass(role) {
   if (role === 'super_admin') return 'badge-admin'
@@ -65,7 +63,36 @@ export default function UserManagementPage() {
   // inventing a second one for someone who already has one.
   const [roleFor, setRoleFor] = useState(null)
   const [newRole, setNewRole] = useState('staff')
+  const [confirmingRole, setConfirmingRole] = useState(false)   // step 2 of the modal
+  const [confirmText, setConfirmText] = useState('')            // type-the-ID gate
   const [saving, setSaving] = useState(false)
+
+  // The open row-actions menu: which account, and where to draw it.
+  const [actionsFor, setActionsFor] = useState(null)
+  const [actionsPos, setActionsPos] = useState(null)
+
+  const openActionsFor = (e, user) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    // Flip above the button when there isn't room below, so the menu never
+    // opens off the bottom of the window on the last rows of a long table.
+    const estimatedHeight = 220
+    const below = window.innerHeight - r.bottom
+    setActionsPos({
+      top: below < estimatedHeight ? Math.max(8, r.top - estimatedHeight) : r.bottom + 4,
+      left: Math.max(8, Math.min(r.left, window.innerWidth - 224)),
+    })
+    setActionsFor(user)
+  }
+
+  // Every menu item closes the menu before doing its thing, or the dropdown
+  // would sit open behind whatever modal it just launched.
+  const runAction = (fn) => { setActionsFor(null); fn() }
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setActionsFor(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   const [resetFor, setResetFor] = useState(null)
   const [resetForm, setResetForm] = useState({ password: '', password_confirmation: '' })
@@ -180,14 +207,34 @@ export default function UserManagementPage() {
     }
   }
 
+  // Gaining staff or super-admin powers is the change worth pausing on; going
+  // back down to student/teacher only ever removes access, so it doesn't need
+  // the same ceremony.
+  const isPromotion = (from, to) =>
+    ['staff', 'super_admin'].includes(to) && to !== from
+
+  const closeRoleModal = () => {
+    setRoleFor(null); setConfirmingRole(false); setConfirmText('')
+  }
+
   const submitRoleChange = async (e) => {
-    e.preventDefault(); setSaving(true)
+    e.preventDefault()
+
+    // Step 1 → step 2. A promotion shows a confirmation screen naming the
+    // person and spelling out what the role grants, rather than applying on
+    // the first click.
+    if (isPromotion(roleFor.role, newRole) && !confirmingRole) {
+      setConfirmingRole(true)
+      return
+    }
+
+    setSaving(true)
     try {
       const res = await usersApi.changeRole(roleFor.id, newRole)
-      setRoleFor(null); load()
+      closeRoleModal(); load()
       notify(res.data?.message || 'Role changed.', 'success')
     } catch (err) {
-      // The backend refuses self-demotion and demoting the last Super Admin,
+      // The backend refuses self-changes and demoting the last Super Admin,
       // and its message explains which — so surface it rather than a generic
       // failure the admin can't act on.
       notify(err?.response?.data?.message || 'Could not change the role.', 'error')
@@ -341,56 +388,82 @@ export default function UserManagementPage() {
                   </td>
                   <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                   <td>
-                    {/* Hidden on your own row: the backend refuses a self
-                        role-change (demoting yourself would remove the very
-                        permission needed to undo it), so offering the button
-                        would only ever produce an error. */}
-                    {isSuper && me?.id !== u.id && (
-                      <button className="btn-icon" title="Change Role"
-                              onClick={() => { setRoleFor(u); setNewRole(u.role) }}>
-                        <i className="fas fa-user-tag"></i>
-                      </button>
-                    )}
-                    {isSuper && u.role === 'staff' && (
-                      <button className="btn-icon" title="Manage Permissions" onClick={() => setPermsFor(u)}>
-                        <i className="fas fa-user-shield"></i>
-                      </button>
-                    )}
-                    {canResetPasswords && (
-                      <button className="btn-icon" title="Reset Password" onClick={() => setResetFor(u)}>
-                        <i className="fas fa-key"></i>
-                      </button>
-                    )}
-                    {isSuper && (
-                      u.status === 'active' ? (
-                        <button className="btn-icon" title="Deactivate"
-                                onClick={() => setStatusConfirm({ user: u, activating: false })}
-                                disabled={me?.id === u.id}
-                                style={me?.id === u.id ? { opacity: 0.3 } : {}}>
-                          <i className="fas fa-user-slash"></i>
-                        </button>
-                      ) : (
-                        <button className="btn-icon" title="Activate"
-                                onClick={() => setStatusConfirm({ user: u, activating: true })}>
-                          <i className="fas fa-user-check"></i>
-                        </button>
-                      )
-                    )}
-                    {/* Staff only see this for students/teachers — they can
-                        never delete a peer staff account or a super admin. */}
-                    {canDelete(me, u, hasPermission) && (
-                      <button className="btn-icon" title="Delete Account"
-                              onClick={() => setDeleteFor(u)}
-                              style={{ color: 'var(--danger)' }}>
-                        <i className="fas fa-trash"></i>
-                      </button>
-                    )}
+                    {/* One named button instead of a row of bare icons. The
+                        icons only announced themselves via a hover tooltip,
+                        which touch and keyboard users never get at all — and
+                        "key" vs "user-slash" vs "user-tag" is guesswork even
+                        with a mouse. */}
+                    <button className="row-actions-btn"
+                            onClick={e => openActionsFor(e, u)}>
+                      Actions <i className="fas fa-chevron-down caret"></i>
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Rendered outside the table on purpose: a menu positioned inside a
+            table cell gets clipped by it. Anchored to the button's own
+            bounding rect via position:fixed, the same fix used for the cite
+            menu on the thesis page. */}
+        {actionsFor && actionsPos && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}
+                 onClick={() => setActionsFor(null)}></div>
+            <div className="row-actions-menu"
+                 style={{ top: actionsPos.top, left: actionsPos.left }}
+                 role="menu">
+              {isSuper && (
+                <button role="menuitem"
+                        disabled={me?.id === actionsFor.id}
+                        title={me?.id === actionsFor.id
+                          ? 'You cannot change your own role — ask another Super Admin'
+                          : undefined}
+                        onClick={() => runAction(() => { setRoleFor(actionsFor); setNewRole(actionsFor.role) })}>
+                  <i className="fas fa-user-tag"></i> Change Role
+                </button>
+              )}
+              {isSuper && actionsFor.role === 'staff' && (
+                <button role="menuitem" onClick={() => runAction(() => setPermsFor(actionsFor))}>
+                  <i className="fas fa-user-shield"></i> Manage Permissions
+                </button>
+              )}
+              {canResetPasswords && (
+                <button role="menuitem" onClick={() => runAction(() => setResetFor(actionsFor))}>
+                  <i className="fas fa-key"></i> Reset Password
+                </button>
+              )}
+              {isSuper && (
+                actionsFor.status === 'active' ? (
+                  <button role="menuitem"
+                          disabled={me?.id === actionsFor.id}
+                          title={me?.id === actionsFor.id ? 'You cannot deactivate your own account' : undefined}
+                          onClick={() => runAction(() => setStatusConfirm({ user: actionsFor, activating: false }))}>
+                    <i className="fas fa-user-slash"></i> Deactivate Account
+                  </button>
+                ) : (
+                  <button role="menuitem"
+                          onClick={() => runAction(() => setStatusConfirm({ user: actionsFor, activating: true }))}>
+                    <i className="fas fa-user-check"></i> Activate Account
+                  </button>
+                )
+              )}
+              {/* Staff only see this for students/teachers — they can never
+                  delete a peer staff account or a super admin. */}
+              {canDelete(me, actionsFor, hasPermission) && (
+                <>
+                  <div className="divider"></div>
+                  <button role="menuitem" className="danger"
+                          onClick={() => runAction(() => setDeleteFor(actionsFor))}>
+                    <i className="fas fa-trash"></i> Delete Account
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
         {meta.last_page > 1 && (
           <div className="pagination">
             <div className="pagination-info">
@@ -409,24 +482,32 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* Create User Modal */}
+      {/* Change Role — step 1 picks the role, step 2 confirms a promotion */}
       {roleFor && (
-        <div className="modal-backdrop" onClick={() => setRoleFor(null)}>
+        <div className="modal-backdrop" onClick={closeRoleModal}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><i className="fas fa-user-shield" style={{ color: 'var(--primary-blue)', marginRight: 8 }}></i>Change Role</h3>
-              <button className="btn-icon" onClick={() => setRoleFor(null)}><i className="fas fa-times"></i></button>
+              <h3>
+                <i className={`fas ${confirmingRole ? 'fa-triangle-exclamation' : 'fa-user-shield'}`}
+                   style={{ color: confirmingRole ? 'var(--warning, #E0912F)' : 'var(--primary-blue)', marginRight: 8 }}></i>
+                {confirmingRole
+                  ? `Promote to ${roleLabel(newRole)}?`
+                  : 'Change Role'}
+              </h3>
+              <button className="btn-icon" onClick={closeRoleModal}><i className="fas fa-times"></i></button>
             </div>
             <form onSubmit={submitRoleChange}>
               <div className="modal-body">
-                <div className="notice-banner" style={{ marginBottom: 16 }}>
-                  <i className="fas fa-info-circle"></i>
-                  <span>
-                    Accounts aren't created here — everyone signs up themselves with their
-                    school ID number. Promote an existing account instead, so each person
-                    keeps the one account they already use.
-                  </span>
-                </div>
+                {!confirmingRole && (
+                  <div className="notice-banner" style={{ marginBottom: 16 }}>
+                    <i className="fas fa-info-circle"></i>
+                    <span>
+                      Accounts aren't created here — everyone signs up themselves with their
+                      school ID number. Promote an existing account instead, so each person
+                      keeps the one account they already use.
+                    </span>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label">Account</label>
@@ -446,37 +527,82 @@ export default function UserManagementPage() {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">New Role <span className="req">*</span></label>
-                  <select className="form-control" value={newRole}
-                          onChange={e => setNewRole(e.target.value)}>
-                    <option value="student">Student</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="staff">Staff</option>
-                    <option value="super_admin">Super Admin</option>
-                  </select>
-                  <small className="text-muted" style={{ fontSize: 11 }}>
-                    Currently <b>{roleLabel(roleFor.role)}</b>. Demotion uses this same
-                    control, so a promotion can always be undone.
-                  </small>
-                </div>
-
-                {newRole === 'super_admin' && roleFor.role !== 'super_admin' && (
-                  <div className="notice-banner warning" style={{ marginTop: 4 }}>
-                    <i className="fas fa-exclamation-triangle"></i>
-                    <span>
-                      A Super Admin can manage every account, permission and setting in the
-                      system, including deleting items and other accounts.
-                    </span>
+                {!confirmingRole ? (
+                  <div className="form-group">
+                    <label className="form-label">New Role <span className="req">*</span></label>
+                    <select className="form-control" value={newRole}
+                            onChange={e => setNewRole(e.target.value)}>
+                      <option value="student">Student</option>
+                      <option value="teacher">Teacher</option>
+                      <option value="staff">Staff</option>
+                      <option value="super_admin">Super Admin</option>
+                    </select>
+                    <small className="text-muted" style={{ fontSize: 11 }}>
+                      Currently <b>{roleLabel(roleFor.role)}</b>. Demotion uses this same
+                      control, so a promotion can always be undone.
+                    </small>
                   </div>
+                ) : (
+                  <>
+                    <div className="notice-banner warning" style={{ marginBottom: 14 }}>
+                      <i className="fas fa-exclamation-triangle"></i>
+                      <span>
+                        {newRole === 'super_admin' ? (
+                          <>
+                            A <b>Super Admin</b> can manage every account, permission and setting
+                            in the system — including deleting theses and other accounts, and
+                            promoting other people to Super Admin.
+                          </>
+                        ) : (
+                          <>
+                            <b>Staff</b> can upload, edit, archive and restrict items, manage
+                            categories, view the audit log and reports, and reset passwords.
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Only Super Admin asks you to type the ID. It is the one
+                        role that can hand out the same power to anyone else, so
+                        it should not be reachable by muscle memory — and typing
+                        the ID forces a look at WHO is being promoted, which a
+                        yes/no button never does. */}
+                    {newRole === 'super_admin' && (
+                      <div className="form-group">
+                        <label className="form-label">
+                          Type <b>{roleFor.id_number}</b> to confirm
+                        </label>
+                        <input type="text" className="form-control" autoFocus
+                               inputMode="numeric" maxLength={5}
+                               placeholder={roleFor.id_number}
+                               value={confirmText}
+                               onChange={e => setConfirmText(e.target.value.replace(/\D/g, ''))} />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setRoleFor(null)}>Cancel</button>
+                {/* Back, not Cancel, on step 2 — a mistaken role choice should
+                    cost one click to correct, not restart the whole flow. */}
+                <button type="button" className="btn btn-secondary"
+                        onClick={() => confirmingRole ? (setConfirmingRole(false), setConfirmText('')) : closeRoleModal()}>
+                  {confirmingRole ? 'Back' : 'Cancel'}
+                </button>
                 <button type="submit" className="btn btn-primary"
-                        disabled={saving || newRole === roleFor.role}>
-                  <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-user-shield'}`}></i>
-                  {saving ? ' Saving…' : ' Change Role'}
+                        disabled={
+                          saving ||
+                          newRole === roleFor.role ||
+                          // The typed ID must match before a Super Admin
+                          // promotion can be submitted.
+                          (confirmingRole && newRole === 'super_admin' && confirmText !== String(roleFor.id_number))
+                        }>
+                  <i className={`fas ${saving ? 'fa-spinner fa-spin' : confirmingRole ? 'fa-check' : 'fa-user-shield'}`}></i>
+                  {saving
+                    ? ' Saving…'
+                    : confirmingRole
+                      ? ` Yes, promote to ${roleLabel(newRole)}`
+                      : ' Continue'}
                 </button>
               </div>
             </form>

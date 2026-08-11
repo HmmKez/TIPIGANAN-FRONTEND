@@ -4,6 +4,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { usersApi } from '../api'
 import { timeAgo } from '../utils/timeAgo'
 import { avatarUrl } from '../utils/avatar'
+// Shared, because three pages each had their own copy and only one of them was
+// fixed when accounts stopped having names — the others still rendered a lone
+// digit for an ID-only account.
+import { initialsOf as initials } from '../utils/userLabel'
 import { boldQuoted } from '../utils/boldQuoted'
 import ConfirmModal from './ConfirmModal'
 import ActiveTermBadge from './ActiveTermBadge'
@@ -57,16 +61,6 @@ function getMenu(isAdmin, isGuest) {
   ] })
 
   return menu
-}
-
-// Accepts whatever display_name resolves to, which for an account with no name
-// yet is the 5-digit ID number — splitting that on spaces yields one token, so
-// the avatar shows its first two digits rather than a lone letter.
-function initials(label) {
-  if (!label) return 'U'
-  const parts = String(label).trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return parts.map(s => s[0]).slice(0, 2).join('').toUpperCase()
 }
 
 // 768px matches the .sidebar mobile breakpoint in styles.css — on phone-width

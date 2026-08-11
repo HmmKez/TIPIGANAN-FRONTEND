@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { userLabel } from '../utils/userLabel'
+import { userLabel, initialsOf as initials } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { Loader, ErrorMessage } from '../components/Loader'
@@ -10,11 +10,6 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../components/Toast'
 import { avatarUrl } from '../utils/avatar'
 import { boldQuoted } from '../utils/boldQuoted'
-
-function initials(name) {
-  if (!name) return '?'
-  return name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
-}
 
 function roleLabel(role) {
   if (role === 'super_admin') return 'Super Administrator'
