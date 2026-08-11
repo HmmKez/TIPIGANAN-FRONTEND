@@ -523,9 +523,12 @@ export default function BrowsePage() {
                       </div>
                       <div className="result-stats">
                         <span><i className="fas fa-eye"></i> {t.views_count || 0}</span>
-                        {t.favorites_count != null && (
-                          <span><i className="fas fa-bookmark"></i> {t.favorites_count}</span>
-                        )}
+                        {/* Was `favorites_count`, a field the API never sent, so
+                            this badge silently never rendered — the `!= null`
+                            guard turned a missing field into an invisible one
+                            rather than a visible error. Now reads the same
+                            bookmark_count the thesis detail page uses. */}
+                        <span><i className="fas fa-bookmark"></i> {t.bookmark_count || 0}</span>
                       </div>
                     </div>
                   </div>
