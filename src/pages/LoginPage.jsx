@@ -105,7 +105,19 @@ export default function LoginPage() {
 
             <div className="checkbox-row">
               <label><input type="checkbox" /> Remember me</label>
-              <a href="#">Forgot password?</a>
+            </div>
+
+            {/* There is no self-service password reset, by deliberate design —
+                resets are staff-assisted only. The old "Forgot password?" link
+                pointed at href="#", so it did nothing at all while promising a
+                flow that does not exist. Telling people where to actually go is
+                both honest and more useful than a dead link. */}
+            <div className="auth-help">
+              <i className="fas fa-circle-info"></i>
+              <span>
+                Forgot your password or account details? Visit the school library
+                and ask the staff to help you reset it.
+              </span>
             </div>
 
             <button type="submit" className="btn btn-primary" disabled={submitting || retryCountdown > 0}>

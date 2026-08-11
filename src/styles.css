@@ -1199,6 +1199,32 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .checkbox-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .checkbox-row a { color: var(--primary-blue); }
 
+/* Replaces the old "Forgot password?" link. There is no self-service reset —
+   staff do them — so this points people at the library instead of at a link
+   that went nowhere. Styled as quiet guidance rather than an error: nothing has
+   gone wrong when someone reads it, and it sits under the password field where
+   they'd look for the old link.
+   Uses the theme tokens so it follows light/dark like everything else. */
+.auth-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.auth-help i {
+  color: var(--primary-blue);
+  font-size: 13px;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
 /* The "Back to Home" link lives in .auth-left — which is hidden below 900px.
    That left anyone who opened Login or Register on a phone with no way back to
    the landing page at all (the browser's back button only helps if they arrived
