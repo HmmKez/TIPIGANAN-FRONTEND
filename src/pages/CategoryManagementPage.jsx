@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import RowActions from '../components/RowActions'
 import { Link } from 'react-router-dom'
 import { categoriesApi } from '../api/admin'
 import { apiOrigin } from '../api/axios'
@@ -161,12 +162,27 @@ export default function CategoryManagementPage() {
                   <td>{c.theses_count ?? '—'}</td>
                   <td>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
                   <td>
-                    <button className="btn-icon" title="Edit" onClick={() => open('edit', c)}>
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    <button className="btn-icon" title="Delete" style={{ color: 'var(--danger)' }} onClick={() => setDeleteFor(c)}>
-                      <i className="fas fa-trash"></i>
-                    </button>
+                    {/* Only two actions, so the menu costs an extra click —
+                        but one of them permanently deletes a collection, and a
+                        labelled item behind a divider is far harder to hit by
+                        accident than a small red icon sitting beside Edit.
+                        Consistency matters too: one pattern to learn across
+                        the management tables rather than three. */}
+                    <RowActions items={[
+                      {
+                        // "Category", matching this page's own heading and its
+                        // toasts ("Category created", "Category updated") —
+                        // not "Collection", which is what the public-facing
+                        // landing page calls them.
+                        icon: 'fa-edit', label: 'Edit Category',
+                        onClick: () => open('edit', c),
+                      },
+                      { divider: true },
+                      {
+                        icon: 'fa-trash', label: 'Delete Category', danger: true,
+                        onClick: () => setDeleteFor(c),
+                      },
+                    ]} />
                   </td>
                 </tr>
               ))}

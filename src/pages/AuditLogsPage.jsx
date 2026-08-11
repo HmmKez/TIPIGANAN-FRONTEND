@@ -236,8 +236,13 @@ export default function AuditLogsPage() {
                   </td>
                   <td><code style={{ fontSize: 11 }}>{l.ip_address || '—'}</code></td>
                   <td>
-                    <button className="btn-icon" title="View details" onClick={() => setDetail(l)}>
-                      <i className="fas fa-info-circle"></i>
+                    {/* A named button rather than a dropdown: there is only
+                        one action here, and wrapping a single item in a menu
+                        would add a click to reach it while hiding it behind a
+                        second label. The icon alone had the same tooltip-only
+                        discoverability problem as the other tables, though. */}
+                    <button className="row-actions-btn" onClick={() => setDetail(l)}>
+                      <i className="fas fa-info-circle"></i> Details
                     </button>
                   </td>
                 </tr>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import RowActions from '../components/RowActions'
 import { Link, useNavigate } from 'react-router-dom'
 import { thesesApi, categoriesApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
@@ -280,38 +281,45 @@ export default function CollectionManagementPage() {
                   </td>
                   <td>{t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}</td>
                   <td>
-                    <button className="btn-icon" title="View" onClick={() => navigate(`/theses/${t.id}`)}>
-                      <i className="fas fa-eye"></i>
-                    </button>
-                    <button className="btn-icon" title="Edit" onClick={() => navigate(`/admin/theses/${t.id}/edit`)}>
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    {t.status === 'active' && (
-                      <button className="btn-icon" title="Restrict" onClick={() => restrictOne(t.id, t.title)}>
-                        <i className="fas fa-user-lock"></i>
-                      </button>
-                    )}
-                    {t.status === 'restricted' && (
-                      <button className="btn-icon" title="Remove Restriction" onClick={() => unrestrictOne(t.id, t.title)}>
-                        <i className="fas fa-unlock"></i>
-                      </button>
-                    )}
-                    {t.status === 'archived' ? (
-                      <button className="btn-icon" title="Restore" onClick={() => unarchiveOne(t.id, t.title)}>
-                        <i className="fas fa-box-open"></i>
-                      </button>
-                    ) : (
-                      <button className="btn-icon" title="Archive" onClick={() => archiveOne(t.id, t.title)}>
-                        <i className="fas fa-archive"></i>
-                      </button>
-                    )}
-                    {canDeleteDocs && (
-                      <button className="btn-icon" title="Delete"
-                              style={{ color: 'var(--danger)' }}
-                              onClick={() => deleteOne(t.id, t.title)}>
-                        <i className="fas fa-trash"></i>
-                      </button>
-                    )}
+                    {/* Named actions instead of six icons. "user-lock" vs
+                        "unlock" vs "archive" vs "box-open" was four tooltips
+                        to hover through, and restrict/archive are not
+                        obviously different concepts from an icon alone. */}
+                    <RowActions items={[
+                      {
+                        icon: 'fa-eye', label: 'View Item',
+                        onClick: () => navigate(`/theses/${t.id}`),
+                      },
+                      {
+                        icon: 'fa-edit', label: 'Edit Details',
+                        onClick: () => navigate(`/admin/theses/${t.id}/edit`),
+                      },
+                      t.status === 'active' && {
+                        icon: 'fa-user-lock', label: 'Restrict to Members',
+                        title: 'Hidden from guests; still visible to anyone signed in',
+                        onClick: () => restrictOne(t.id, t.title),
+                      },
+                      t.status === 'restricted' && {
+                        icon: 'fa-unlock', label: 'Remove Restriction',
+                        title: 'Make visible to guests again',
+                        onClick: () => unrestrictOne(t.id, t.title),
+                      },
+                      t.status === 'archived'
+                        ? {
+                            icon: 'fa-box-open', label: 'Restore from Archive',
+                            onClick: () => unarchiveOne(t.id, t.title),
+                          }
+                        : {
+                            icon: 'fa-archive', label: 'Archive Item',
+                            title: 'Hidden from everyone except staff',
+                            onClick: () => archiveOne(t.id, t.title),
+                          },
+                      canDeleteDocs && { divider: true },
+                      canDeleteDocs && {
+                        icon: 'fa-trash', label: 'Delete Item', danger: true,
+                        onClick: () => deleteOne(t.id, t.title),
+                      },
+                    ]} />
                   </td>
                 </tr>
               ))}

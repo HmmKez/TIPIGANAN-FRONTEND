@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import RowActions from '../components/RowActions'
 import { userLabel } from '../utils/userLabel'
 import { Link, useNavigate } from 'react-router-dom'
 import { thesisReportsApi } from '../api/admin'
@@ -114,17 +115,20 @@ export default function ReportedItemsPage() {
                   <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
                   {tab === 'resolved' && <td>{r.resolver?.name || '—'}</td>}
                   <td>
-                    <button className="btn-icon" title="View" onClick={() => navigate(`/theses/${r.thesis_id}`)}>
-                      <i className="fas fa-eye"></i>
-                    </button>
-                    <button className="btn-icon" title="Edit Item" onClick={() => navigate(`/admin/theses/${r.thesis_id}/edit`)}>
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    {tab === 'pending' && (
-                      <button className="btn-icon" title="Mark Resolved" onClick={() => setResolveFor(r)}>
-                        <i className="fas fa-check-circle"></i>
-                      </button>
-                    )}
+                    <RowActions items={[
+                      {
+                        icon: 'fa-eye', label: 'View Item',
+                        onClick: () => navigate(`/theses/${r.thesis_id}`),
+                      },
+                      {
+                        icon: 'fa-edit', label: 'Edit Item',
+                        onClick: () => navigate(`/admin/theses/${r.thesis_id}/edit`),
+                      },
+                      tab === 'pending' && {
+                        icon: 'fa-check-circle', label: 'Mark Resolved',
+                        onClick: () => setResolveFor(r),
+                      },
+                    ]} />
                   </td>
                 </tr>
               ))}

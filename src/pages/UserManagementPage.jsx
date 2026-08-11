@@ -3,6 +3,7 @@ import { userLabel, initialsOf as initials } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import { usersApi, permissionsApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
+import RowActions from '../components/RowActions'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { avatarUrl } from '../utils/avatar'
@@ -67,34 +68,7 @@ export default function UserManagementPage() {
   const [confirmText, setConfirmText] = useState('')            // type-the-ID gate
   const [saving, setSaving] = useState(false)
 
-  // The open row-actions menu: which account, and where to draw it.
-  const [actionsFor, setActionsFor] = useState(null)
-  const [actionsPos, setActionsPos] = useState(null)
-
-  const openActionsFor = (e, user) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    // Flip above the button when there isn't room below, so the menu never
-    // opens off the bottom of the window on the last rows of a long table.
-    const estimatedHeight = 220
-    const below = window.innerHeight - r.bottom
-    setActionsPos({
-      top: below < estimatedHeight ? Math.max(8, r.top - estimatedHeight) : r.bottom + 4,
-      left: Math.max(8, Math.min(r.left, window.innerWidth - 224)),
-    })
-    setActionsFor(user)
-  }
-
-  // Every menu item closes the menu before doing its thing, or the dropdown
-  // would sit open behind whatever modal it just launched.
-  const runAction = (fn) => { setActionsFor(null); fn() }
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') setActionsFor(null) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
-
-  const [resetFor, setResetFor] = useState(null)
+    const [resetFor, setResetFor] = useState(null)
   const [resetForm, setResetForm] = useState({ password: '', password_confirmation: '' })
 
   const [allPermissions, setAllPermissions] = useState([])
@@ -388,15 +362,42 @@ export default function UserManagementPage() {
                   </td>
                   <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                   <td>
-                    {/* One named button instead of a row of bare icons. The
-                        icons only announced themselves via a hover tooltip,
-                        which touch and keyboard users never get at all — and
-                        "key" vs "user-slash" vs "user-tag" is guesswork even
-                        with a mouse. */}
-                    <button className="row-actions-btn"
-                            onClick={e => openActionsFor(e, u)}>
-                      Actions <i className="fas fa-chevron-down caret"></i>
-                    </button>
+                    <RowActions items={[
+                      isSuper && {
+                        icon: 'fa-user-tag', label: 'Change Role',
+                        disabled: me?.id === u.id,
+                        title: me?.id === u.id
+                          ? 'You cannot change your own role — ask another Super Admin'
+                          : undefined,
+                        onClick: () => { setRoleFor(u); setNewRole(u.role) },
+                      },
+                      isSuper && u.role === 'staff' && {
+                        icon: 'fa-user-shield', label: 'Manage Permissions',
+                        onClick: () => setPermsFor(u),
+                      },
+                      canResetPasswords && {
+                        icon: 'fa-key', label: 'Reset Password',
+                        onClick: () => setResetFor(u),
+                      },
+                      isSuper && (u.status === 'active'
+                        ? {
+                            icon: 'fa-user-slash', label: 'Deactivate Account',
+                            disabled: me?.id === u.id,
+                            title: me?.id === u.id ? 'You cannot deactivate your own account' : undefined,
+                            onClick: () => setStatusConfirm({ user: u, activating: false }),
+                          }
+                        : {
+                            icon: 'fa-user-check', label: 'Activate Account',
+                            onClick: () => setStatusConfirm({ user: u, activating: true }),
+                          }),
+                      // Staff only see this for students/teachers — they can
+                      // never delete a peer staff account or a super admin.
+                      canDelete(me, u, hasPermission) && { divider: true },
+                      canDelete(me, u, hasPermission) && {
+                        icon: 'fa-trash', label: 'Delete Account', danger: true,
+                        onClick: () => setDeleteFor(u),
+                      },
+                    ]} />
                   </td>
                 </tr>
               ))}
@@ -404,66 +405,6 @@ export default function UserManagementPage() {
           </table>
         </div>
 
-        {/* Rendered outside the table on purpose: a menu positioned inside a
-            table cell gets clipped by it. Anchored to the button's own
-            bounding rect via position:fixed, the same fix used for the cite
-            menu on the thesis page. */}
-        {actionsFor && actionsPos && (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}
-                 onClick={() => setActionsFor(null)}></div>
-            <div className="row-actions-menu"
-                 style={{ top: actionsPos.top, left: actionsPos.left }}
-                 role="menu">
-              {isSuper && (
-                <button role="menuitem"
-                        disabled={me?.id === actionsFor.id}
-                        title={me?.id === actionsFor.id
-                          ? 'You cannot change your own role — ask another Super Admin'
-                          : undefined}
-                        onClick={() => runAction(() => { setRoleFor(actionsFor); setNewRole(actionsFor.role) })}>
-                  <i className="fas fa-user-tag"></i> Change Role
-                </button>
-              )}
-              {isSuper && actionsFor.role === 'staff' && (
-                <button role="menuitem" onClick={() => runAction(() => setPermsFor(actionsFor))}>
-                  <i className="fas fa-user-shield"></i> Manage Permissions
-                </button>
-              )}
-              {canResetPasswords && (
-                <button role="menuitem" onClick={() => runAction(() => setResetFor(actionsFor))}>
-                  <i className="fas fa-key"></i> Reset Password
-                </button>
-              )}
-              {isSuper && (
-                actionsFor.status === 'active' ? (
-                  <button role="menuitem"
-                          disabled={me?.id === actionsFor.id}
-                          title={me?.id === actionsFor.id ? 'You cannot deactivate your own account' : undefined}
-                          onClick={() => runAction(() => setStatusConfirm({ user: actionsFor, activating: false }))}>
-                    <i className="fas fa-user-slash"></i> Deactivate Account
-                  </button>
-                ) : (
-                  <button role="menuitem"
-                          onClick={() => runAction(() => setStatusConfirm({ user: actionsFor, activating: true }))}>
-                    <i className="fas fa-user-check"></i> Activate Account
-                  </button>
-                )
-              )}
-              {/* Staff only see this for students/teachers — they can never
-                  delete a peer staff account or a super admin. */}
-              {canDelete(me, actionsFor, hasPermission) && (
-                <>
-                  <div className="divider"></div>
-                  <button role="menuitem" className="danger"
-                          onClick={() => runAction(() => setDeleteFor(actionsFor))}>
-                    <i className="fas fa-trash"></i> Delete Account
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )}
         {meta.last_page > 1 && (
           <div className="pagination">
             <div className="pagination-info">
