@@ -47,7 +47,10 @@ export const categoriesApi = {
 export const usersApi = {
   list:    (params) => api.get('/users', { params }),
   get:     (id)     => api.get(`/users/${id}`),
-  create:  (data)   => api.post('/users', data),                        // super_admin
+  // No create(). Accounts are never made by an admin — everyone registers
+  // themselves with their school ID number, and a Super Admin promotes an
+  // existing account instead. The POST /users endpoint is gone on the backend.
+  changeRole: (id, role) => api.patch(`/users/${id}/role`, { role }),   // super_admin
   update:  (id, d)  => api.put(`/users/${id}`, d),                      // super_admin
   remove:  (id)     => api.delete(`/users/${id}`),                      // requires delete_accounts permission
   activate:   (id)  => api.patch(`/users/${id}/activate`),

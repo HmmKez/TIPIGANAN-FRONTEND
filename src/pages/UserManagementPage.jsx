@@ -7,7 +7,6 @@ import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { avatarUrl } from '../utils/avatar'
 
-const emptyCreate = { id_number: '', name: '', email: '', password: '', role: 'staff' }
 
 // Staff get every other privilege (uploading, editing, categorizing, viewing
 // logs, exporting reports, viewing users, resetting passwords) automatically
@@ -61,8 +60,11 @@ export default function UserManagementPage() {
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
 
-  const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState(emptyCreate)
+  // Which account's role is being changed, and to what. Replaces the old
+  // create-account modal: admins promote an existing account rather than
+  // inventing a second one for someone who already has one.
+  const [roleFor, setRoleFor] = useState(null)
+  const [newRole, setNewRole] = useState('staff')
   const [saving, setSaving] = useState(false)
 
   const [resetFor, setResetFor] = useState(null)
@@ -178,16 +180,17 @@ export default function UserManagementPage() {
     }
   }
 
-  const create = async (e) => {
+  const submitRoleChange = async (e) => {
     e.preventDefault(); setSaving(true)
     try {
-      await usersApi.create(createForm)
-      setShowCreate(false); setCreateForm(emptyCreate); load()
-      notify('User created.', 'success')
+      const res = await usersApi.changeRole(roleFor.id, newRole)
+      setRoleFor(null); load()
+      notify(res.data?.message || 'Role changed.', 'success')
     } catch (err) {
-      const errs = err?.response?.data?.errors
-      notify(errs ? Object.values(errs).flat().join(' ') :
-                    (err?.response?.data?.message || 'Create failed.'), 'error')
+      // The backend refuses self-demotion and demoting the last Super Admin,
+      // and its message explains which — so surface it rather than a generic
+      // failure the admin can't act on.
+      notify(err?.response?.data?.message || 'Could not change the role.', 'error')
     } finally { setSaving(false) }
   }
 
@@ -216,15 +219,12 @@ export default function UserManagementPage() {
             <Link to="/admin">Dashboard</Link> <span>›</span> User Management
           </div>
           <div className="page-title">User Management</div>
-          <div className="page-subtitle">View, create, activate/deactivate, reset passwords, and manage user accounts.</div>
+          <div className="page-subtitle">View accounts, change roles, activate/deactivate, reset passwords, and manage permissions.</div>
         </div>
-        {isSuper && (
-          <div className="flex gap-2" style={{ gap: 10 }}>
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-              <i className="fas fa-user-plus"></i> Add User
-            </button>
-          </div>
-        )}
+        {/* No "Add User" button. Accounts are self-registered with a school ID
+            number; promotion is a per-account action, so it lives on the row
+            for the person being promoted rather than as a page-level button
+            that would have to ask which account it meant. */}
       </div>
 
       {/* Stat Cards */}
@@ -341,6 +341,16 @@ export default function UserManagementPage() {
                   </td>
                   <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                   <td>
+                    {/* Hidden on your own row: the backend refuses a self
+                        role-change (demoting yourself would remove the very
+                        permission needed to undo it), so offering the button
+                        would only ever produce an error. */}
+                    {isSuper && me?.id !== u.id && (
+                      <button className="btn-icon" title="Change Role"
+                              onClick={() => { setRoleFor(u); setNewRole(u.role) }}>
+                        <i className="fas fa-user-tag"></i>
+                      </button>
+                    )}
                     {isSuper && u.role === 'staff' && (
                       <button className="btn-icon" title="Manage Permissions" onClick={() => setPermsFor(u)}>
                         <i className="fas fa-user-shield"></i>
@@ -400,74 +410,73 @@ export default function UserManagementPage() {
       </div>
 
       {/* Create User Modal */}
-      {showCreate && (
-        <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
+      {roleFor && (
+        <div className="modal-backdrop" onClick={() => setRoleFor(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><i className="fas fa-user-plus" style={{ color: 'var(--primary-blue)', marginRight: 8 }}></i>Add User</h3>
-              <button className="btn-icon" onClick={() => setShowCreate(false)}><i className="fas fa-times"></i></button>
+              <h3><i className="fas fa-user-shield" style={{ color: 'var(--primary-blue)', marginRight: 8 }}></i>Change Role</h3>
+              <button className="btn-icon" onClick={() => setRoleFor(null)}><i className="fas fa-times"></i></button>
             </div>
-            <form onSubmit={create}>
+            <form onSubmit={submitRoleChange}>
               <div className="modal-body">
                 <div className="notice-banner" style={{ marginBottom: 16 }}>
                   <i className="fas fa-info-circle"></i>
-                  <span>This form creates <b>staff</b> or <b>super_admin</b> accounts only. Students and teachers should self-register.</span>
+                  <span>
+                    Accounts aren't created here — everyone signs up themselves with their
+                    school ID number. Promote an existing account instead, so each person
+                    keeps the one account they already use.
+                  </span>
                 </div>
+
                 <div className="form-group">
-                  <label className="form-label">ID Number <span className="req">*</span></label>
-                  {/* text, not number, so a leading zero survives. */}
-                  <input type="text" className="form-control" required
-                         inputMode="numeric" pattern="\d{5}" maxLength={5}
-                         placeholder="e.g. 12345"
-                         title="The staff member's 5-digit school ID number"
-                         value={createForm.id_number}
-                         onChange={e => setCreateForm({ ...createForm, id_number: e.target.value.replace(/\D/g, '') })} />
+                  <label className="form-label">Account</label>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                    background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 8,
+                  }}>
+                    <div className="user-avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
+                      {initials(userLabel(roleFor))}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <b>{userLabel(roleFor)}</b><br />
+                      <small className="text-muted">
+                        {roleFor.id_number} · {roleFor.email}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">New Role <span className="req">*</span></label>
+                  <select className="form-control" value={newRole}
+                          onChange={e => setNewRole(e.target.value)}>
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="staff">Staff</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
                   <small className="text-muted" style={{ fontSize: 11 }}>
-                    This is what they will use to sign in.
+                    Currently <b>{roleLabel(roleFor.role)}</b>. Demotion uses this same
+                    control, so a promotion can always be undone.
                   </small>
                 </div>
-                <div className="form-group">
-                  {/* Optional here, unlike self-registration: an admin creating
-                      a colleague's account usually knows their name, and there
-                      is no reason to discard it while waiting for the school's
-                      API. Blank falls back to the ID number. */}
-                  <label className="form-label">Full Name <span className="text-muted" style={{ fontWeight: 400 }}>(optional)</span></label>
-                  <input type="text" className="form-control"
-                         placeholder="Leave blank to show the ID number instead"
-                         value={createForm.name}
-                         onChange={e => setCreateForm({ ...createForm, name: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Email <span className="req">*</span></label>
-                  <input type="email" className="form-control" required
-                         value={createForm.email}
-                         onChange={e => setCreateForm({ ...createForm, email: e.target.value })} />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Role <span className="req">*</span></label>
-                    <select className="form-control" value={createForm.role}
-                            onChange={e => setCreateForm({ ...createForm, role: e.target.value })}>
-                      <option value="staff">Staff</option>
-                      <option value="super_admin">Super Admin</option>
-                    </select>
+
+                {newRole === 'super_admin' && roleFor.role !== 'super_admin' && (
+                  <div className="notice-banner warning" style={{ marginTop: 4 }}>
+                    <i className="fas fa-exclamation-triangle"></i>
+                    <span>
+                      A Super Admin can manage every account, permission and setting in the
+                      system, including deleting items and other accounts.
+                    </span>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Password <span className="req">*</span></label>
-                    <input type="password" className="form-control" required minLength="8"
-                           pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                           title="At least 8 characters, with an uppercase letter, a lowercase letter, and a number."
-                           value={createForm.password}
-                           onChange={e => setCreateForm({ ...createForm, password: e.target.value })} />
-                    <small className="text-muted" style={{ fontSize: 11 }}>At least 8 characters, with uppercase, lowercase, and a number.</small>
-                  </div>
-                </div>
+                )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-save'}`}></i>
-                  {saving ? ' Creating…' : ' Create User'}
+                <button type="button" className="btn btn-secondary" onClick={() => setRoleFor(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary"
+                        disabled={saving || newRole === roleFor.role}>
+                  <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-user-shield'}`}></i>
+                  {saving ? ' Saving…' : ' Change Role'}
                 </button>
               </div>
             </form>
