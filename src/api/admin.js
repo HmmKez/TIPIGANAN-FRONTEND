@@ -2,6 +2,16 @@
 // Every function matches an endpoint from tipiganan-backend/routes/api.php.
 import api from './axios'
 
+// ============ SCAN INBOX (Staff + Super Admin) ============
+// PDFs the library scanner has left waiting in a shared folder. The system
+// never talks to the scanner itself — the SV600 is USB-only and speaks a
+// proprietary protocol — so ScanSnap Home writes the file and we read the
+// folder. See config/scanner.php in the backend.
+export const scanInboxApi = {
+  list:    ()     => api.get('/scan-inbox'),
+  discard: (name) => api.delete(`/scan-inbox/${encodeURIComponent(name)}`),
+}
+
 // ============ THESES (Staff + Super Admin) ============
 export const thesesApi = {
   list:    (params) => api.get('/theses', { params }),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { thesesApi, categoriesApi } from '../api/admin'
+import { thesesApi, categoriesApi, scanInboxApi } from '../api/admin'
 import { citationsApi } from '../api'
 
 const emptyForm = {
@@ -9,6 +9,21 @@ const emptyForm = {
 }
 
 const SCHOOL = 'Mater Dei College'
+
+/**
+ * When a scan arrived, kept short enough to sit on one line beside the size and
+ * page count. A full locale timestamp wraps each row onto three lines, and the
+ * useful information is almost always "was this the one I just scanned?" — so
+ * today's scans show only a time, and older ones a date.
+ */
+function scannedAtLabel(iso) {
+  const when = new Date(iso)
+  if (Number.isNaN(when.getTime())) return ''
+  const time = when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return when.toDateString() === new Date().toDateString()
+    ? time
+    : `${when.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`
+}
 
 // Mirrors CitationController::generate()'s default formula exactly, so the
 // live preview matches what actually gets saved.
@@ -25,6 +40,13 @@ export default function ThesisUploadPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
   const [pdfFile, setPdfFile] = useState(null)
+
+  // A PDF the scanner already left waiting, chosen instead of browsing for a
+  // file. Mutually exclusive with pdfFile — the backend requires exactly one.
+  const [scanFile, setScanFile] = useState(null)
+  const [scans, setScans] = useState([])
+  const [scanState, setScanState] = useState('loading') // loading | ready | unavailable | off
+  const [scanError, setScanError] = useState('')
   const [coverFile, setCoverFile] = useState(null)
   const [categories, setCategories] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -42,6 +64,36 @@ export default function ThesisUploadPage() {
     categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
   }, [])
 
+  const loadScans = () => {
+    setScanState('loading')
+    scanInboxApi.list()
+      .then(r => {
+        const d = r.data || {}
+        if (!d.enabled)        { setScanState('off'); return }
+        // "Folder unreachable" is kept distinct from "nothing scanned yet".
+        // They look the same to a user but mean different things: the first is
+        // usually the shared drive not being mounted, and calling it "no scans"
+        // sends staff to check the scanner instead of the storage.
+        if (d.available === false) { setScanState('unavailable'); setScanError(d.message || ''); return }
+        setScans(d.files || [])
+        setScanState('ready')
+      })
+      .catch(() => setScanState('unavailable'))
+  }
+
+  useEffect(loadScans, [])
+
+  const discardScan = async (name) => {
+    if (!window.confirm(`Discard the scanned file "${name}"? This deletes it from the scan folder.`)) return
+    try {
+      await scanInboxApi.discard(name)
+      if (scanFile?.name === name) setScanFile(null)
+      loadScans()
+    } catch {
+      setError({ message: 'That scan could not be discarded. It may already be gone.' })
+    }
+  }
+
   useEffect(() => { if (!apaEdited) setApaText(defaultApa(form)) }, [form.authors, form.year_published, form.title, apaEdited])
   useEffect(() => { if (!mlaEdited) setMlaText(defaultMla(form)) }, [form.authors, form.year_published, form.title, mlaEdited])
 
@@ -49,12 +101,19 @@ export default function ThesisUploadPage() {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!pdfFile) { setError({ message: 'Please attach a PDF file.' }); return }
+    if (!pdfFile && !scanFile) {
+      setError({ message: 'Attach a PDF, or choose one of the scanned files waiting.' })
+      return
+    }
     setError(null); setSubmitting(true)
     try {
       const data = new FormData()
       Object.entries(form).forEach(([k, v]) => { if (v !== '' && v != null) data.append(k, v) })
-      data.append('pdf_file', pdfFile)
+      // Exactly one of these. A scan is named rather than uploaded — the file
+      // is already on the server's storage, so sending it up from the browser
+      // would mean downloading and re-uploading the staff member's own scan.
+      if (scanFile) data.append('scan_file', scanFile.name)
+      else          data.append('pdf_file', pdfFile)
       if (coverFile) data.append('cover_image', coverFile)
       const res = await thesesApi.create(data)
       const newId = res.data?.id
@@ -222,11 +281,90 @@ export default function ThesisUploadPage() {
 
           <div>
             <div className="panel">
-              <div className="panel-header"><div className="panel-title">PDF File</div></div>
+              <div className="panel-header">
+                <div className="panel-title">PDF File</div>
+                {scanState === 'ready' && scans.length > 0 && (
+                  <button type="button" className="btn btn-secondary btn-sm"
+                          onClick={loadScans} title="Check the scan folder again">
+                    <i className="fas fa-rotate"></i> Refresh
+                  </button>
+                )}
+              </div>
               <div className="panel-body">
+
+                {/* Waiting scans come first: if the scanner has just produced
+                    the file, picking it here is the whole point of the feature
+                    and browsing for it would be the slower path. */}
+                {scanState === 'ready' && scans.length > 0 && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                      <i className="fas fa-print" style={{ color:'var(--primary-blue)' }}></i>
+                      <b style={{ fontSize:13 }}>
+                        {scans.length} scanned {scans.length === 1 ? 'file' : 'files'} waiting
+                      </b>
+                    </div>
+
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      {scans.map(s => {
+                        const chosen = scanFile?.name === s.name
+                        return (
+                          <div key={s.name}
+                               style={{
+                                 display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                                 border:`1px solid ${chosen ? 'var(--primary-blue)' : 'var(--border-light)'}`,
+                                 background: chosen ? 'var(--info-bg)' : 'var(--bg-white)',
+                                 borderRadius:8,
+                               }}>
+                            <button type="button"
+                                    onClick={() => { setScanFile(chosen ? null : s); setPdfFile(null) }}
+                                    style={{
+                                      flex:1, display:'flex', alignItems:'center', gap:10,
+                                      background:'none', border:'none', padding:0, cursor:'pointer',
+                                      textAlign:'left', color:'inherit', font:'inherit',
+                                    }}>
+                              <i className={`fas ${chosen ? 'fa-circle-check' : 'fa-file-pdf'}`}
+                                 style={{ color: chosen ? 'var(--primary-blue)' : 'var(--danger)', fontSize:16 }}></i>
+                              <span style={{ minWidth:0 }}>
+                                <span style={{ display:'block', fontWeight:500, fontSize:13, overflow:'hidden',
+                                               textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                  {s.name}
+                                </span>
+                                <span className="text-muted" style={{ fontSize:11 }}>
+                                  {(s.size / 1024 / 1024).toFixed(1)} MB
+                                  {s.pages ? ` · ${s.pages} page${s.pages === 1 ? '' : 's'}` : ''}
+                                  {' · '}{scannedAtLabel(s.scanned_at)}
+                                </span>
+                              </span>
+                            </button>
+                            <button type="button" className="btn-icon" title="Discard this scan"
+                                    onClick={() => discardScan(s.name)}
+                                    style={{ background:'none', border:'none', cursor:'pointer',
+                                             color:'var(--text-muted)', padding:4 }}>
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div style={{ display:'flex', alignItems:'center', gap:10, margin:'16px 0 4px' }}>
+                      <span style={{ flex:1, height:1, background:'var(--border-light)' }}></span>
+                      <span className="text-muted" style={{ fontSize:11, textTransform:'uppercase', letterSpacing:'0.06em' }}>or</span>
+                      <span style={{ flex:1, height:1, background:'var(--border-light)' }}></span>
+                    </div>
+                  </div>
+                )}
+
+                {scanState === 'unavailable' && (
+                  <div className="notice-banner warning" style={{ marginBottom:14 }}>
+                    <i className="fas fa-triangle-exclamation"></i>
+                    <span>{scanError || 'The scan folder cannot be reached, so scanned files are not listed. You can still attach a PDF below.'}</span>
+                  </div>
+                )}
+
                 <label className="file-drop" style={{ display: 'block' }}>
                   <input type="file" accept="application/pdf" style={{ display: 'none' }}
-                         onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                         onChange={e => { setPdfFile(e.target.files?.[0] || null); setScanFile(null) }} />
                   {pdfFile ? (
                     <>
                       <i className="fas fa-file-pdf" style={{ color: 'var(--danger)' }}></i>
@@ -241,6 +379,12 @@ export default function ThesisUploadPage() {
                     </>
                   )}
                 </label>
+
+                {scanFile && (
+                  <p className="text-muted" style={{ fontSize:11, marginTop:10 }}>
+                    Using the scanned file <b>{scanFile.name}</b>. It leaves the scan folder once this item is saved.
+                  </p>
+                )}
               </div>
             </div>
 
