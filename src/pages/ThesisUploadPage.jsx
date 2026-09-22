@@ -185,7 +185,9 @@ export default function ThesisUploadPage() {
       {success && (
         <div className="notice-banner success" style={{ marginBottom: 16, background: '#E6F4EA', borderLeft: '4px solid #2BB673' }}>
           <i className="fas fa-check-circle" style={{ color: '#2BB673' }}></i>
-          <span>Item uploaded! Redirecting…</span>
+          {/* The document is still being read at this point, so promising a
+              finished record would be untrue for a scanned thesis. */}
+          <span>Item uploaded — the document is being read in the background. Redirecting…</span>
         </div>
       )}
 

@@ -91,6 +91,12 @@ export default function ThesisEditPage() {
   const [extracting, setExtracting] = useState(false)
   const [applyingField, setApplyingField] = useState(null)
 
+  // Reading a scanned document takes minutes and now finishes after the upload
+  // page has already sent the staff member here, so this screen watches for it.
+  // 'pending' | 'processing' | 'done' | 'failed'
+  const [ocrStatus, setOcrStatus] = useState(null)
+  const [ocrWaited, setOcrWaited] = useState(0)
+
   const loadFileVersions = () => {
     thesesApi.listFileVersions(id).then(r => {
       setFileVersions(r.data?.versions || [])
@@ -159,10 +165,48 @@ export default function ThesisEditPage() {
           keywords: t.keywords || '',
           status: t.status || 'active',
         })
+        setOcrStatus(t.ocr_status || null)
       })
       .catch(err => setError(err?.response?.data?.message || 'Failed to load thesis.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  /**
+   * Watch for the document finishing, while it is still being read.
+   *
+   * Only the two fields OCR fills are taken, and only when they are still
+   * empty on screen: a staff member may have started typing an abstract in the
+   * minutes the reading took, and their words must not be overwritten by it.
+   */
+  useEffect(() => {
+    if (ocrStatus !== 'pending' && ocrStatus !== 'processing') return
+
+    const startedAt = Date.now()
+    const timer = setInterval(async () => {
+      setOcrWaited(Math.round((Date.now() - startedAt) / 1000))
+      try {
+        const r = await thesesApi.get(id)
+        const t = r.data?.thesis || r.data
+        setOcrStatus(t.ocr_status || null)
+
+        if (t.ocr_status === 'done') {
+          setForm(prev => ({
+            ...prev,
+            abstract: prev.abstract ? prev.abstract : (t.abstract || ''),
+            keywords: prev.keywords ? prev.keywords : (t.keywords || ''),
+          }))
+        }
+      } catch {
+        // A failed poll is not worth reporting — the next one is 5s away.
+      }
+    }, 5000)
+
+    // Stop after 20 minutes. Past the job's own 15-minute limit nothing more is
+    // coming, and a forgotten timer would poll this page all day.
+    const giveUp = setTimeout(() => clearInterval(timer), 20 * 60 * 1000)
+
+    return () => { clearInterval(timer); clearTimeout(giveUp) }
+  }, [ocrStatus, id])
 
   const update = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -325,6 +369,49 @@ export default function ThesisEditPage() {
           <i className="fas fa-arrow-left"></i> Back to Collections
         </button>
       </div>
+
+      {/* Reading the document runs in the background, so this screen has to
+          say what is happening. An empty Abstract with no explanation is
+          indistinguishable from a document that was read and yielded nothing. */}
+      {(ocrStatus === 'pending' || ocrStatus === 'processing') && (
+        <div className="notice-banner" style={{ marginBottom: 16, alignItems: 'flex-start' }}>
+          <i className="fas fa-spinner fa-spin" style={{ marginTop: 2 }}></i>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>Reading the document…</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              The Abstract and Keywords will fill in here automatically when it finishes. A
+              scanned thesis can take several minutes. You can edit everything else, save, or
+              leave this page — the reading carries on either way.
+              {/* Covers both stalls, which look identical to staff but differ:
+                  'pending' for minutes means nothing picked the job up (usually
+                  no worker running), while 'processing' for minutes means
+                  something picked it up and then died — a killed request or a
+                  restarted worker — in which case nothing will ever mark it
+                  finished. Without this the banner would spin forever. */}
+              {ocrWaited > 120 && (
+                <div style={{ marginTop: 6, fontWeight: 600 }}>
+                  {ocrStatus === 'pending'
+                    ? `Still not started after ${Math.floor(ocrWaited / 60)} minutes — the background worker may not be running. Ask whoever maintains the server to check it.`
+                    : `Still running after ${Math.floor(ocrWaited / 60)} minutes. If it was interrupted it will not finish on its own — use “Re-extract from current file” below to read the document again.`}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ocrStatus === 'failed' && (
+        <div className="notice-banner warning" style={{ marginBottom: 16, alignItems: 'flex-start' }}>
+          <i className="fas fa-triangle-exclamation" style={{ marginTop: 2 }}></i>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>Couldn’t read this document</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              The Abstract and Keywords were not filled in automatically. Type them in below, or
+              use “Re-extract from current file” to try again.
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewWarning && (
         <div
