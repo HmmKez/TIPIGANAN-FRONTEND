@@ -70,6 +70,14 @@ const pageStyles = `
   }
 `
 
+// Which tab a bookmark sits under. Unavailable ones get their own tab rather
+// than "Uncategorized": their department is not sent, and they are not
+// uncategorised.
+function bookmarkGroup(f) {
+  if (f.available === false || !f.thesis) return 'Unavailable'
+  return f.thesis.category ? categoryCode(f.thesis.category) : 'Uncategorized'
+}
+
 export default function BookmarksPage() {
   const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
@@ -80,9 +88,10 @@ export default function BookmarksPage() {
   const [showRemoveAllModal, setShowRemoveAllModal] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  // A favorite whose thesis was deleted keeps showing up here — it's only
-  // removed once the user actually tries to open it (ThesisDetail's 404
-  // handler cleans it up then). Don't auto-delete it on load.
+  // A bookmark whose item this reader can no longer see — archived, or
+  // deleted — comes back with available:false and no item details. It stays
+  // until the reader removes it, so an archived item that staff restore shows
+  // up here again by itself.
   const load = async () => {
     setLoading(true); setError(null)
     try {
@@ -106,7 +115,7 @@ export default function BookmarksPage() {
   const deptCounts = useMemo(() => {
     const counts = {}
     favorites.forEach(f => {
-      const code = f.thesis?.category ? categoryCode(f.thesis.category) : 'Uncategorized'
+      const code = bookmarkGroup(f)
       counts[code] = (counts[code] || 0) + 1
     })
     return counts
@@ -116,9 +125,7 @@ export default function BookmarksPage() {
     let list = [...favorites]
     if (filterDept !== 'all') {
       // Must key the SAME way deptCounts does, or the tabs select nothing.
-      list = list.filter(f =>
-        (f.thesis?.category ? categoryCode(f.thesis.category) : 'Uncategorized') === filterDept
-      )
+      list = list.filter(f => bookmarkGroup(f) === filterDept)
     }
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -186,7 +193,7 @@ export default function BookmarksPage() {
     favorites.forEach((f, i) => {
       const t = f.thesis
       if (!t) {
-        text += `${i + 1}. [This item is no longer available]\n`
+        text += `${i + 1}. [${f.unavailable_reason === 'removed' ? 'Removed from the repository' : 'Currently unavailable'}]\n`
         text += `   Saved: ${new Date(f.created_at).toLocaleDateString()}\n\n`
         return
       }
@@ -276,11 +283,10 @@ export default function BookmarksPage() {
         <div className="thesis-grid">
           {filtered.map((f, i) => {
             const t = f.thesis || {}
-            // The underlying thesis can be deleted out from under a favorite —
-            // the row stays here until the user opens it (ThesisDetail cleans
-            // it up on a 404), so render a "no longer available" placeholder
-            // instead of a card full of blanks.
-            const isDeleted = !f.thesis
+            // Archived or deleted since it was saved: the API sends no details,
+            // so show a placeholder instead of a card full of blanks.
+            const isDeleted = f.available === false || !f.thesis
+            const isRemoved = f.unavailable_reason === 'removed'
             const code = t.category ? categoryCode(t.category) : 'Uncategorized'
             const fullName = t.category ? categoryName(t.category) : 'Uncategorized'
             const progress = getBookmarkProgress(t.id)
@@ -302,8 +308,12 @@ export default function BookmarksPage() {
                 <div className="thesis-info">
                   {isDeleted ? (
                     <>
-                      <div className="thesis-title">This item is no longer available</div>
-                      <div className="thesis-author text-muted">It may have been deleted by staff.</div>
+                      <div className="thesis-title">{isRemoved ? 'Removed from the repository' : 'Currently unavailable'}</div>
+                      <div className="thesis-author text-muted">
+                        {isRemoved
+                          ? 'This item was deleted. You can remove this bookmark.'
+                          : 'The library has taken this item down for now. If it is made available again, it will reappear here.'}
+                      </div>
                     </>
                   ) : (
                     <>
@@ -335,9 +345,13 @@ export default function BookmarksPage() {
                     >
                       <i className="fas fa-bookmark"></i>
                     </button>
-                    <Link to={`/theses/${f.thesis_id}`} className="btn btn-sm btn-primary" style={{ marginLeft: 'auto' }}>
-                      {isDeleted ? 'View' : 'Read'}
-                    </Link>
+                    {/* Nothing to open for an unavailable item — the page would
+                        only say so again. */}
+                    {!isDeleted && (
+                      <Link to={`/theses/${f.thesis_id}`} className="btn btn-sm btn-primary" style={{ marginLeft: 'auto' }}>
+                        Read
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

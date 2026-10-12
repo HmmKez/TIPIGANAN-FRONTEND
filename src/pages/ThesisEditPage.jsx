@@ -466,9 +466,10 @@ export default function ThesisEditPage() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Adviser <span className="req">*</span></label>
-                <input type="text" className="form-control" required
+                <label className="form-label">Adviser</label>
+                <input type="text" className="form-control"
                        value={form.adviser} onChange={e => update('adviser', e.target.value)} />
+                <small className="text-muted" style={{ fontSize: 11 }}>Optional — leave blank if the item has no adviser (e.g. special collections)</small>
               </div>
               <div className="form-group">
                 <label className="form-label">Year Published <span className="req">*</span></label>

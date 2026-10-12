@@ -47,7 +47,7 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <div className="auth-left">
-        <Link to="/" style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'inherit', opacity:0.85, textDecoration:'none', marginBottom:24}}>
+        <Link to="/" className="auth-back">
           <i className="fas fa-arrow-left"></i> Back to Home
         </Link>
         <div className="auth-logo">
@@ -55,11 +55,14 @@ export default function LoginPage() {
         </div>
         <h1>TIPIGANAN</h1>
         <p>MDC Online Repository of Special and Rare Collections. Access digitally preserved thesis manuscripts from departments across Mater Dei College.</p>
+        {/* What an account adds over browsing as a guest (guests can already
+            search, read abstracts and make citations). */}
         <div className="auth-features">
-          <div className="auth-feature"><i className="fas fa-shield-alt"></i> Secure view-only PDF access</div>
-          <div className="auth-feature"><i className="fas fa-search"></i> Powerful multi-field search</div>
-          <div className="auth-feature"><i className="fas fa-bookmark"></i> Personal bookmark library</div>
-          <div className="auth-feature"><i className="fas fa-university"></i> Multi-department repository</div>
+          <div className="auth-features-title">Sign in to:</div>
+          <div className="auth-feature"><i className="fas fa-book-open"></i> Read the full thesis, not just the abstract</div>
+          <div className="auth-feature"><i className="fas fa-lock-open"></i> See restricted collections</div>
+          <div className="auth-feature"><i className="fas fa-bookmark"></i> Save theses to your bookmarks</div>
+          <div className="auth-feature"><i className="fas fa-flag"></i> Report a problem with a thesis</div>
         </div>
       </div>
 

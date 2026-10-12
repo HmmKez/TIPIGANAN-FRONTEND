@@ -52,17 +52,45 @@ function sortItems(items, sort) {
   return copy
 }
 
+// Staff and super admins see archived theses in Browse too (managing them is
+// their job), so their cards carry a status label, and archived ones are
+// visibly set apart. Readers only ever see active and restricted work, so they
+// get neither. Same badge colours as Collection Management.
+const STATUS_LABEL = {
+  active:     { icon: 'fa-check-circle', text: 'Active',     cls: 'badge-active',     hint: 'Visible to everyone' },
+  restricted: { icon: 'fa-lock',         text: 'Restricted', cls: 'badge-restricted', hint: 'Visible to signed-in users only' },
+  archived:   { icon: 'fa-archive',      text: 'Archived',   cls: 'badge-archived',   hint: 'Hidden from students and guests; only staff can see it' },
+}
+
+const STATUS_FILTERS = [
+  { value: 'active',     label: 'Active only' },
+  { value: 'restricted', label: 'Restricted only' },
+  { value: 'archived',   label: 'Archived only' },
+]
+
 export default function BrowsePage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
+
+  // Status filter — staff and super admins only, since they are the only
+  // ones who can see more than one kind. '' means every status they may see,
+  // archived included. Applies to browsing and searching alike.
+  const [status, setStatus] = useState(isAdmin ? (params.get('status') || '') : '')
+  const statusParam = isAdmin && status ? status : undefined
 
   // The badge beside each department must equal what clicking it returns.
   // It previously used `theses_count`, which counts archived theses too — the
   // filter advertised "CAST 19" and then showed 15. Guests see active only;
-  // logged-in users also see restricted, mirroring ThesisController::index.
-  const visibleIn = (c) =>
-    (c.active_theses_count ?? 0) + (user ? (c.restricted_theses_count ?? 0) : 0)
+  // logged-in users also see restricted, mirroring Thesis::visibleStatusesFor.
+  // Staff also see archived, so their badge follows the Status filter.
+  const visibleIn = (c) => {
+    const active = c.active_theses_count ?? 0
+    const restricted = c.restricted_theses_count ?? 0
+    if (!isAdmin) return active + (user ? restricted : 0)
+    const archived = Math.max(0, (c.theses_count ?? 0) - active - restricted)
+    return { active, restricted, archived }[status] ?? active + restricted + archived
+  }
 
   const [heroInput, setHeroInput] = useState('')
   const [query, setQuery] = useState(params.get('q') || '')
@@ -100,12 +128,14 @@ export default function BrowsePage() {
             q: query,
             category_id: categoryId || undefined,
             year_published: year || undefined,
+            status: statusParam,
           },
         })
       : api.get('/theses', {
           params: {
             category_id: categoryId || undefined,
             year_published: year || undefined,
+            status: statusParam,
             page,
           },
         })
@@ -144,7 +174,7 @@ export default function BrowsePage() {
       .finally(() => !cancelled && setLoading(false))
 
     return () => { cancelled = true }
-  }, [query, categoryId, year, page])
+  }, [query, categoryId, year, statusParam, page])
 
   // Sync URL params so the page is bookmarkable / back-nav works
   useEffect(() => {
@@ -152,15 +182,16 @@ export default function BrowsePage() {
     if (query)      next.q = query
     if (categoryId) next.category_id = categoryId
     if (year)       next.year_published = year
+    if (statusParam) next.status = statusParam
     if (sort !== 'recent') next.sort = sort
     if (page !== 1) next.page = String(page)
     setParams(next, { replace: true })
-  }, [query, categoryId, year, sort, page, setParams])
+  }, [query, categoryId, year, statusParam, sort, page, setParams])
 
   // Client-side sort (backend already returns latest first for /theses)
   const displayItems = useMemo(() => sortItems(items, sort), [items, sort])
 
-  const showHero = !query && !categoryId && !year && items.length === 0 && !loading && !error
+  const showHero = !query && !categoryId && !year && !statusParam && items.length === 0 && !loading && !error
 
   const runSearch = (fromResults = false) => {
     const q = fromResults ? resultsInput.trim() : heroInput.trim()
@@ -185,7 +216,7 @@ export default function BrowsePage() {
 
   const clearAllFilters = () => {
     setQuery(''); setResultsInput(''); setHeroInput('')
-    setCategoryId(''); setYear(''); setSort('recent'); setPage(1)
+    setCategoryId(''); setYear(''); setStatus(''); setSort('recent'); setPage(1)
   }
 
   // Build current year list for the dropdown
@@ -274,6 +305,17 @@ export default function BrowsePage() {
                 <option value="">All Years</option>
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
+              {isAdmin && (
+                <select
+                  className="filter-select"
+                  value={status}
+                  onChange={e => { setStatus(e.target.value); setPage(1) }}
+                  aria-label="Status"
+                >
+                  <option value="">All, including archived</option>
+                  {STATUS_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              )}
             </div>
           </div>
 
@@ -292,7 +334,7 @@ export default function BrowsePage() {
           </div>
 
           {/* Active filter chips */}
-          {(query || categoryId || year) && (
+          {(query || categoryId || year || statusParam) && (
             <div className="active-filters">
               {query && (
                 <span className="chip">
@@ -313,6 +355,13 @@ export default function BrowsePage() {
                   <i className="fas fa-calendar-alt" style={{ fontSize: 10 }}></i>
                   {year}
                   <button onClick={() => { setYear(''); setPage(1) }}><i className="fas fa-times"></i></button>
+                </span>
+              )}
+              {statusParam && (
+                <span className="chip">
+                  <i className={`fas ${STATUS_LABEL[statusParam].icon}`} style={{ fontSize: 10 }}></i>
+                  {STATUS_LABEL[statusParam].text} only
+                  <button onClick={() => { setStatus(''); setPage(1) }} title="Remove"><i className="fas fa-times"></i></button>
                 </span>
               )}
               <button
@@ -374,6 +423,30 @@ export default function BrowsePage() {
                     {years.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
+
+                {/* Staff and super admins only. Readers can only ever see one
+                    or two statuses, so the choice would mean nothing to them. */}
+                {isAdmin && (
+                  <>
+                    <div className="filter-divider"></div>
+                    <div className="filter-group">
+                      <div className="filter-group-label">Status</div>
+                      {[{ value: '', label: 'All, including archived' }, ...STATUS_FILTERS].map(o => (
+                        <div key={o.value || 'all'} className="filter-option">
+                          <label>
+                            <input
+                              type="radio"
+                              name="status"
+                              checked={status === o.value}
+                              onChange={() => { setStatus(o.value); setPage(1) }}
+                            />
+                            {' '}{o.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 <button className="btn-apply-filter" onClick={clearAllFilters}>
                   Reset Filters
@@ -449,9 +522,10 @@ export default function BrowsePage() {
                 const deptCode = categoryCode(t.category)
                 const meta = DEPT_META[deptCode] || { icon: 'fa-file-alt', cover: '' }
                 const kws = parseKeywords(t.keywords)
+                const status = isAdmin ? STATUS_LABEL[t.status] : null
 
                 return (
-                  <div className="result-card" key={t.id}>
+                  <div className={`result-card${status && t.status !== 'active' ? ` is-${t.status}` : ''}`} key={t.id}>
                     <div className="result-card-header">
                       <div className={`result-cover ${meta.cover}`}>
                         {t.category?.cover_image_path ? (
@@ -501,6 +575,11 @@ export default function BrowsePage() {
                           )}
                         </div>
                       </div>
+                      {status && (
+                        <span className={`badge result-status ${status.cls}`} title={status.hint}>
+                          <i className={`fas ${status.icon}`}></i> {status.text}
+                        </span>
+                      )}
                     </div>
 
                     {t.abstract && (

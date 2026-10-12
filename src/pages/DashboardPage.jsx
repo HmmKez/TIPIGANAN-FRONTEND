@@ -111,10 +111,13 @@ export default function DashboardPage() {
   // merged and sorted by actual timestamp — no placeholders. Empty for a
   // brand-new account until they do something.
   const activityItems = [
-    ...favorites.map(f => {
-      const t = f.thesis || f
-      return { type: 'bookmark', title: `Bookmarked "${t.title}"`, at: f.created_at }
-    }),
+    ...favorites.map(f => ({
+      type: 'bookmark',
+      // An archived or deleted item comes back with no details, which used to
+      // print 'Bookmarked "undefined"'.
+      title: f.thesis ? `Bookmarked "${f.thesis.title}"` : 'Bookmarked an item that is currently unavailable',
+      at: f.created_at,
+    })),
     ...readingHistory.map(h => ({
       type: 'view',
       title: `Viewed "${h.thesis?.title || 'a thesis'}"`,

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api, { apiOrigin } from '../api/axios'
-import { favoritesApi } from '../api'
 import { useToast } from '../components/Toast'
 import { categoryCode, categoryName, categoryLabel } from '../utils/category'
 const isAuthenticated = () => !!localStorage.getItem('tipiganan_token')
@@ -40,13 +39,14 @@ export default function ThesisDetail() {
       .then((res) => { if (!cancelled) setData(res.data) })
       .catch((err) => {
         if (cancelled) return
+        // No longer deletes the reader's bookmark. A 404 here does not mean
+        // the item is gone: archived items return 404 to readers too, and
+        // deleting the bookmark meant it never came back when staff restored
+        // the item. The Bookmarks page shows it as unavailable instead.
         if (err?.response?.status === 404) {
-          if (isAuthenticated()) {
-            favoritesApi.remove(id).catch(() => {})
-          }
-          setError('This thesis is no longer available. It may have been deleted and has been removed from your bookmarks.')
+          setError('This item is not available right now. It may have been archived or removed from the repository.')
         } else {
-          setError(err?.response?.data?.message || 'Failed to load thesis.')
+          setError(err?.response?.data?.message || 'Failed to load this item.')
         }
       })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -113,7 +113,7 @@ export default function ThesisDetail() {
           api.post(`/theses/${id}/citations/log`, { format_type: format }).catch(() => {})
         }
       } else {
-        notify('Citation is not available for this thesis yet.', 'error')
+        notify('Citation is not available for this item yet.', 'error')
       }
     } catch {
       notify('Citation service unavailable. Try again in a moment.', 'error')
@@ -140,7 +140,7 @@ export default function ThesisDetail() {
     }
   }
 
-  if (loading) return <div className="panel"><div className="panel-body">Loading thesis…</div></div>
+  if (loading) return <div className="panel"><div className="panel-body">Loading item…</div></div>
   if (error)   return <div className="panel"><div className="panel-body error">{error}</div></div>
   if (!data)   return null
 
@@ -149,6 +149,9 @@ export default function ThesisDetail() {
   // Read the authored code and name — never derive one from the other.
   const deptName = categoryName(thesis.category)
   const deptCode = categoryCode(thesis.category)
+  // Only staff and super admins can open an archived item at all (the API
+  // refuses everyone else), so this look is only ever seen by them.
+  const isArchived = thesis.status === 'archived'
 
   return (
     <>
@@ -158,9 +161,9 @@ export default function ThesisDetail() {
             <Link to="/dashboard">Dashboard</Link> <span>›</span>
             <Link to="/browse">Browse</Link> <span>›</span>
             <span>{deptCode}</span> <span>›</span>
-            Thesis Detail
+            Item Details
           </div>
-          <div className="page-title">Thesis Detail</div>
+          <div className="page-title">Item Details</div>
         </div>
         <div>
           <button className="btn btn-secondary" onClick={() => nav(-1)}>
@@ -169,16 +172,27 @@ export default function ThesisDetail() {
         </div>
       </div>
 
+      {isArchived && (
+        <div className="archived-banner" role="status">
+          <i className="fas fa-archive" />
+          <div>
+            <b>This item is archived.</b> Students and guests cannot find or open it; only staff can.
+            To publish it again, change its status in{' '}
+            <Link to="/admin/collections">Collection Management</Link>.
+          </div>
+        </div>
+      )}
+
       <div className="notice-banner">
         <i className="fas fa-info-circle" />
         {/* Not "screenshots are disabled" — a browser cannot disable a
             screenshot, and a reader who tries Win+Shift+S once will disbelieve
             everything else on this banner. The watermark is the real control,
             and saying so is the stronger deterrent anyway. */}
-        <span>This thesis is available for online reading only. Downloading, printing, and copying are disabled, and every page is watermarked with your name — any screenshot is traceable to your account.</span>
+        <span>This item is available for online reading only. Downloading, printing, and copying are disabled, and every page is watermarked with your name — any screenshot is traceable to your account.</span>
       </div>
 
-      <div className="panel">
+      <div className={'panel' + (isArchived ? ' detail-archived' : '')}>
         <div className="panel-body">
           <div className="thesis-detail-grid">
             <div>
@@ -188,7 +202,7 @@ export default function ThesisDetail() {
                 ) : (
                   <i className="fas fa-microchip" />
                 )}
-                <div className="cover-label">FOR ACADEMIC USE ONLY</div>
+                <div className="cover-label">{isArchived ? 'ARCHIVED' : 'FOR ACADEMIC USE ONLY'}</div>
               </div>
               <div className="text-center text-muted" style={{ fontSize: '11.5px' }}>
                 <i className="fas fa-eye" /> {view_count ?? 0} views ·{' '}
@@ -205,7 +219,8 @@ export default function ThesisDetail() {
               <h2>{thesis.title}</h2>
               <div className="authors">By <b>{thesis.authors}</b></div>
 
-              <div className="row"><b>Adviser:</b> <span>{thesis.adviser}</span></div>
+              {/* Optional since 2026-10-12: many collection items have no adviser. */}
+              {thesis.adviser && <div className="row"><b>Adviser:</b> <span>{thesis.adviser}</span></div>}
               <div className="row"><b>Year Published:</b> <span>{thesis.year_published}</span></div>
               <div className="row"><b>Department:</b> <span>{deptName}</span></div>
               {thesis.pages != null && <div className="row"><b>Pages:</b> <span>{thesis.pages} pages</span></div>}
@@ -215,6 +230,7 @@ export default function ThesisDetail() {
                   <span className={'badge ' + (thesis.status === 'active' ? 'badge-active' : thesis.status === 'restricted' ? 'badge-restricted' : 'badge-archived')}>
                     {thesis.status}
                   </span>
+                  {isArchived && <span className="status-note">Hidden from students and guests</span>}
                 </span>
               </div>
               <div className="row"><b>Date Uploaded:</b>
@@ -284,7 +300,7 @@ export default function ThesisDetail() {
           <div className="panel-header">
             <div className="panel-title">
               <i className="fas fa-layer-group" style={{ color: 'var(--primary-blue)', marginRight: 6 }} />
-              Related Theses
+              Related Items
             </div>
           </div>
           <div className="panel-body">

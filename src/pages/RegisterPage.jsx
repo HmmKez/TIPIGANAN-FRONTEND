@@ -38,7 +38,6 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     id_number: '', email: '', password: '', password_confirmation: '',
   })
-  const [agree, setAgree] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [retrySeconds, setRetrySeconds] = useState(0)
@@ -96,7 +95,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!agree) { setError('You must agree to the Terms and Privacy Policy.'); return }
     if (form.password !== form.password_confirmation) { setError('Passwords do not match.'); return }
     setSubmitting(true)
     try {
@@ -185,12 +183,10 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="checkbox-row" style={{marginBottom:18}}>
-        <label>
-          <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} required />
-          {' '}I agree to the <a href="#">Terms</a> and <a href="#">Privacy Policy</a>
-        </label>
-      </div>
+      {/* The "I agree to the Terms and Privacy Policy" checkbox was removed
+          (2026-10-12): the library has no terms or privacy policy yet, so the
+          box was required while both links went nowhere. Put it back, with
+          real links, once those documents exist. The server never checked it. */}
 
       <button type="submit" className="btn btn-primary" disabled={submitting || retryCountdown > 0}>
         <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-user-plus'}`}></i>
@@ -316,7 +312,7 @@ export default function RegisterPage() {
   return (
     <div className="auth-wrap">
       <div className="auth-left">
-        <Link to="/" style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:13, color:'inherit', opacity:0.85, textDecoration:'none', marginBottom:24}}>
+        <Link to="/" className="auth-back">
           <i className="fas fa-arrow-left"></i> Back to Home
         </Link>
         <div className="auth-logo">
@@ -324,11 +320,14 @@ export default function RegisterPage() {
         </div>
         <h1>TIPIGANAN</h1>
         <p>MDC Online Repository of Special and Rare Collections. Access digitally preserved thesis manuscripts from departments across Mater Dei College.</p>
+        {/* Who may register, then what an account adds over browsing as a guest. */}
         <div className="auth-features">
-          <div className="auth-feature"><i className="fas fa-shield-alt"></i> Secure view-only PDF access</div>
-          <div className="auth-feature"><i className="fas fa-search"></i> Powerful multi-field search</div>
-          <div className="auth-feature"><i className="fas fa-bookmark"></i> Personal bookmark library</div>
-          <div className="auth-feature"><i className="fas fa-university"></i> Multi-department repository</div>
+          <div className="auth-features-note">For current Mater Dei College students and teachers, using your school ID number.</div>
+          <div className="auth-features-title">With an account you can:</div>
+          <div className="auth-feature"><i className="fas fa-book-open"></i> Read the full thesis, not just the abstract</div>
+          <div className="auth-feature"><i className="fas fa-lock-open"></i> See restricted collections</div>
+          <div className="auth-feature"><i className="fas fa-bookmark"></i> Save theses to your bookmarks</div>
+          <div className="auth-feature"><i className="fas fa-flag"></i> Report a problem with a thesis</div>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * A labelled "Actions" button that opens a menu of NAMED actions for one table
@@ -69,11 +70,17 @@ export default function RowActions({ items = [], label = 'Actions', align = 'lef
         {label} <i className="fas fa-chevron-down caret"></i>
       </button>
 
-      {open && pos && (
+      {/* Portalled to <body>: the Actions column is position:sticky on wider
+          screens, and a sticky cell is its own stacking context, so a menu
+          rendered inside it could never rise above the next row's sticky
+          cell, whatever its z-index. */}
+      {open && pos && createPortal(
         <>
           {/* Full-screen catcher so a click anywhere else dismisses the menu,
-              and so opening one row's menu closes another's. */}
-          <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setOpen(false)}></div>
+              and so opening one row's menu closes another's. Above the sidebar
+              (100), or a click on the sidebar leaves the menu hanging open;
+              below modals (1000). */}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 101 }} onClick={() => setOpen(false)}></div>
           {/* position:fixed anchored to the button's own rect — a menu placed
               inside a table cell gets clipped by it. */}
           <div className="row-actions-menu" style={{ top: pos.top, left: pos.left }} role="menu">
@@ -96,7 +103,8 @@ export default function RowActions({ items = [], label = 'Actions', align = 'lef
               )
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   )

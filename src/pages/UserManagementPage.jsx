@@ -316,7 +316,7 @@ export default function UserManagementPage() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="data-table">
+          <table className="data-table stack-on-phone">
             <thead>
               <tr>
                 <th>User</th>
@@ -333,7 +333,7 @@ export default function UserManagementPage() {
               )}
               {users.map(u => (
                 <tr key={u.id}>
-                  <td>
+                  <td className="cell-primary">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {avatarUrl(u) ? (
                         <img src={avatarUrl(u)} alt="" className="user-avatar user-avatar-img" style={{ width: 36, height: 36 }} />
@@ -354,14 +354,14 @@ export default function UserManagementPage() {
                       </div>
                     </div>
                   </td>
-                  <td><span className={`badge ${roleBadgeClass(u.role)}`}>{roleLabel(u.role)}</span></td>
-                  <td>
+                  <td data-label="Role"><span className={`badge ${roleBadgeClass(u.role)}`}>{roleLabel(u.role)}</span></td>
+                  <td data-label="Status">
                     <span className={`badge ${u.status === 'active' ? 'badge-active' : 'badge-restricted'}`}>
                       {u.status}
                     </span>
                   </td>
-                  <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
-                  <td>
+                  <td data-label="Created">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                  <td className="cell-actions">
                     <RowActions items={[
                       isSuper && {
                         icon: 'fa-user-tag', label: 'Change Role',

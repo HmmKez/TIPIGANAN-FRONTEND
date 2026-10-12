@@ -699,15 +699,36 @@ input, select, textarea { font-family: inherit; }
 }
 .avatar-upload-btn:hover { background: var(--primary-blue-dark); }
 
+/* Truncated rather than allowed to widen the top bar. .topbar-right never
+   shrinks (so Home / Sign In stay whole), which meant a long name pushed the
+   whole bar past the screen edge - 326px on a 320px phone as the Super Admin,
+   and any user with a long enough name would do the same on wider phones. */
 .user-name {
   font-size: 13px;
   color: var(--text-primary);
   font-weight: 500;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-role {
   font-size: 10.5px;
   color: var(--text-muted);
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The smallest phones: drop the role line (the avatar and name already say
+   who is signed in), tighten the spacing, and cap the name harder. */
+@media (max-width: 400px) {
+  .topbar-right { gap: 8px; }
+  .user-chip { padding-right: 10px; }
+  .user-chip .user-role { display: none; }
+  .user-chip .user-name { max-width: 96px; }
 }
 
 /* ============ CONTENT ============ */
@@ -751,6 +772,14 @@ input, select, textarea { font-family: inherit; }
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 18px;
   margin-bottom: 28px;
+}
+
+/* Two tiles per row on phones. At the 180px minimum a phone fits only one,
+   so four number tiles stacked into ~700px - a full screen of scrolling
+   before reaching anything the page is actually for. */
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-grid .stat-card { padding: 14px 16px; }
 }
 
 .stat-card {
@@ -868,15 +897,24 @@ input, select, textarea { font-family: inherit; }
   padding: 22px;
 }
 
+/* minmax(0, …) rather than a bare `fr`, deliberately. A plain `1fr` track
+   means minmax(auto, 1fr): it may not shrink below its widest unbreakable
+   content. One long scanner file name ("ScanSnap_2026-09-22_09-14-03.pdf"),
+   kept on a single line so it can be truncated with an ellipsis, therefore
+   stretched the whole Upload page to 446px on a 360px phone. With a 0 floor
+   the column stays the width of the screen and the name truncates as
+   intended. Applied here, on the shared layout, because the dashboards,
+   profile and reports pages use the same grid and would hit the same trap
+   the first time any long text landed in them. */
 .panel-grid-2 {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 22px;
   margin-bottom: 24px;
 }
 
 @media (max-width: 1024px) {
-  .panel-grid-2 { grid-template-columns: 1fr; }
+  .panel-grid-2 { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ============ BUTTONS ============ */
@@ -1026,6 +1064,147 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .data-table tbody tr:hover { background: var(--bg-hover); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
+/* ============ ACTIONS ALWAYS IN REACH ON TABLETS ============
+   Between phone and wide desktop a table still scrolls sideways inside its
+   box, and on Collections and Audit Logs the Actions / Details column sat
+   past the right edge at every width from 641px to 1024px - including the
+   common laptop and iPad-landscape width of 1024px, where Collections hid it
+   by 119px and Audit Logs by 373px. Pinning that one column to the right
+   edge keeps it in view while the rest of the row scrolls underneath it, the
+   way a spreadsheet freezes a column.
+
+   Keyed on `cell-actions`, so only tables that have an Actions column are
+   affected. The background stops scrolled cells showing through; the shadow
+   marks the edge content is sliding under. */
+@media (min-width: 641px) {
+  .data-table td.cell-actions,
+  .data-table:has(td.cell-actions) thead th:last-child {
+    position: sticky;
+    right: 0;
+    background: var(--bg-card);
+    box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.18);
+  }
+  .data-table:has(td.cell-actions) thead th:last-child { background: var(--bg-subtle); }
+  .data-table tbody tr:hover td.cell-actions { background: var(--bg-hover); }
+}
+
+/* One-line truncation for long text in a desktop table. A class rather than
+   an inline style so the phone card layout below can release it. */
+.data-table td.cell-truncate {
+  max-width: 400px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============ TABLES AS CARDS ON PHONES ============
+   Below 640px a table with `stack-on-phone` turns each row into a card: the
+   identifying cell (`cell-primary` - a title, a user) across the top, every
+   other cell as a labelled line underneath, and the Actions menu at the
+   bottom where it can always be reached.
+
+   The previous approach let wide tables scroll sideways inside their box.
+   That kept the PAGE from overflowing, which is what an automated width
+   check measures, but on a phone it showed two columns and hid the rest -
+   including the Actions menu on every management page and the Action and
+   Description of every audit entry - with nothing to say there was more.
+
+   Labels come from each cell's `data-label`, written once in the markup, so
+   the card can never drift out of step with the table's own headings.
+   Opt-in per table: a table that already fits a phone keeps its columns. */
+@media (max-width: 640px) {
+  .data-table.stack-on-phone thead { display: none; }
+
+  .data-table.stack-on-phone,
+  .data-table.stack-on-phone tbody,
+  .data-table.stack-on-phone tr,
+  .data-table.stack-on-phone td { display: block; width: 100%; }
+
+  /* A column of cells, so the identifying cell can be pulled to the top and
+     the actions pushed to the bottom with `order`, whatever column they sit
+     in on the desktop table (Audit Logs leads with the timestamp; Categories
+     with a cover image). */
+  .data-table.stack-on-phone tbody tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .data-table.stack-on-phone tbody tr:last-child { border-bottom: none; }
+
+  .data-table.stack-on-phone tbody td {
+    border: none;
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .data-table.stack-on-phone tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* The cell that says what the row IS: full width, left-aligned, no label. */
+  .data-table.stack-on-phone tbody td.cell-primary {
+    order: -1;
+    display: block;
+    text-align: left;
+    padding: 0 0 8px;
+  }
+
+  /* A long description reads as a paragraph under its label, not squeezed
+     into the right-hand half of a line. */
+  .data-table.stack-on-phone tbody td.cell-block {
+    display: block;
+    text-align: left;
+  }
+  .data-table.stack-on-phone tbody td.cell-block[data-label]::before {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* The bulk-select checkbox sits in the card's top-right corner, and the
+     identifying cell leaves room for it. */
+  .data-table.stack-on-phone tbody td.cell-select {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    width: auto;
+    padding: 0;
+  }
+  .data-table.stack-on-phone tbody td.cell-select ~ td.cell-primary { padding-right: 32px; }
+
+  .data-table.stack-on-phone tbody td.cell-actions {
+    order: 99;
+    justify-content: flex-end;
+    padding-top: 10px;
+  }
+
+  /* Desktop truncates long text to one line; a card has the room to wrap it,
+     and a truncated audit description on a phone hides the very thing the
+     row exists to say. */
+  .data-table.stack-on-phone tbody td.cell-truncate {
+    white-space: normal;
+    max-width: none;
+    overflow: visible;
+  }
+
+  /* Loading / empty rows span the whole table and keep their centring. */
+  .data-table.stack-on-phone tbody td[colspan] { display: block; text-align: center; }
+}
+
 /* ============ BADGES ============ */
 .badge {
   display: inline-block;
@@ -1058,8 +1237,12 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   color: #fff;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 60px;
+  /* safe: when the content is taller than the panel it starts at the top
+     instead of overflowing upward, out of reach. */
+  justify-content: safe center;
+  /* The top padding is the Back to Home button's row, so the centred
+     content can never ride up underneath it. */
+  padding: 96px 60px 48px;
   position: relative;
   overflow: hidden;
 }
@@ -1127,6 +1310,25 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   margin-top: 36px;
   position: relative;
   z-index: 2;
+}
+
+.auth-features-title {
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.auth-features-note {
+  max-width: 420px;
+  margin-bottom: 24px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 13.5px;
+  line-height: 1.5;
 }
 
 .auth-feature {
@@ -1229,29 +1431,62 @@ textarea.form-control { resize: vertical; min-height: 80px; }
    That left anyone who opened Login or Register on a phone with no way back to
    the landing page at all (the browser's back button only helps if they arrived
    from it). This one sits inside the card and appears exactly when the panel
-   carrying the other one disappears, so there is always exactly one. */
+   carrying the other one disappears, so there is always exactly one.
+   Both are pinned to the top-left corner as an outlined pill: the panel's
+   content is centred top to bottom, so a link that just led it sat a third of
+   the way down the page, small and faded. */
+.auth-back {
+  position: absolute;
+  top: 28px;
+  left: 40px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  transition: background 0.15s;
+}
+.auth-back:hover { background: rgba(255, 255, 255, 0.26); }
+
 .auth-back-mobile { display: none; }
 
 @media (max-width: 900px) {
   .auth-left { display: none; }
 
+  /* Room above the card for the pinned link, so a tall card (Register)
+     can never slide underneath it. */
+  .auth-right { position: relative; padding-top: 80px; }
+
   .auth-back-mobile {
+    position: absolute;
+    top: 20px;
+    left: 24px;
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    margin-bottom: 20px;
-    padding: 8px 0;
+    padding: 8px 14px;
+    border-radius: 999px;
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    background: var(--bg-white);
+    border: 1px solid var(--border-medium);
     text-decoration: none;
-    transition: color 0.15s;
+    transition: color 0.15s, border-color 0.15s;
   }
-  .auth-back-mobile:hover { color: var(--primary-blue); }
+  .auth-back-mobile:hover { color: var(--primary-blue); border-color: var(--primary-blue); }
 }
 
 @media (max-width: 480px) {
-  .auth-right { padding: 24px; }
+  .auth-right { padding: 80px 24px 24px; }
+  .auth-back-mobile { left: 16px; top: 16px; }
 }
 
 /* ============ BROWSE / SEARCH ============ */
@@ -1685,6 +1920,32 @@ textarea.form-control { resize: vertical; min-height: 80px; }
  * height now resolves against the 1fr row (the plot), not the whole column, so
  * the tallest bar fills the plot exactly instead of overrunning into the label.
  */
+
+/* A chart with many bars - the 24-hour Users Online chart.
+ *
+ * The standard 14px gap is fine for five bars but not for twenty-four: 23
+ * gaps x 14px is 322px, more than a phone's whole content width. Every bar was
+ * squeezed to zero width and vanished, while the value labels (positioned
+ * absolutely) still drew, so the chart showed as stray numbers on a blank
+ * area. On phones the gap shrinks, the per-bar numbers go (24 of them cannot
+ * fit side by side), and every third hour is labelled so 00h-21h still read. */
+@media (max-width: 640px) {
+  /* Side padding kept: the first and last labels overflow their ~9px columns,
+     and without it "00h" and "23h" were clipped at the chart's edges. */
+  .bar-chart.bar-chart-dense { gap: 2px; }
+  .bar-chart-dense .bar-value { display: none; }
+  .bar-chart-dense .bar-col:not(:nth-child(3n+1)) .bar-label { visibility: hidden; }
+  /* The labels that remain are wider than their ~11px column, and the
+     standard label rules (max-width 100%, ellipsis) cut "03h" down to "0…".
+     Their neighbours' labels are hidden, so the room either side is free. */
+  .bar-chart-dense .bar-label { max-width: none; overflow: visible; text-overflow: clip; }
+  /* ...but the label must not size its column. Each .bar-col is a grid whose
+     implicit column is `auto`, so a 24px label widened every third column to
+     24px while the rest stayed ~9px, and the bars - width 100% of their
+     column - came out uneven and overlapping. A 0 floor keeps every column
+     the same width; the label then spills past it without moving anything. */
+  .bar-chart-dense .bar-col { grid-template-columns: minmax(0, 1fr); }
+}
 .bar-col {
   flex: 1;
   min-width: 0;
@@ -1893,6 +2154,33 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   letter-spacing: 0.5px;
 }
 
+/* Archived item (only staff can open one). Same language as the archived
+   Browse card: grey, dashed, colour drained from the cover — so an archived
+   item looks the same wherever staff meet it. The banner says why, and the
+   buttons stay at full strength because staff can still read it. */
+.archived-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin-bottom: 14px; padding: 14px 18px;
+  border-radius: 8px; border: 1px dashed var(--border-medium);
+  background: var(--bg-hover); color: var(--text-primary);
+  font-size: 13px; line-height: 1.5;
+}
+.archived-banner > i {
+  flex-shrink: 0; margin-top: 1px;
+  width: 28px; height: 28px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--text-secondary); color: var(--bg-white); font-size: 12px;
+}
+.archived-banner a { color: var(--primary-blue); font-weight: 600; }
+
+.panel.detail-archived { background: var(--bg-hover); border: 1px dashed var(--border-medium); box-shadow: none; }
+.detail-archived .detail-cover { filter: grayscale(1); }
+.detail-archived .detail-cover img { opacity: 0.6; }
+.detail-archived .detail-cover .cover-label { background: rgba(0,0,0,0.55); font-weight: 700; letter-spacing: 1.5px; }
+.detail-archived .detail-meta h2 { color: var(--text-secondary); }
+.detail-archived .detail-meta .badge-archived { background: var(--text-secondary); color: var(--bg-white); }
+.detail-meta .status-note { margin-left: 8px; font-size: 12px; color: var(--text-muted); }
+
 .detail-meta { padding-left: 4px; }
 .detail-meta h2 {
   font-size: 22px;
@@ -1916,6 +2204,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   line-height: 1.7;
   color: var(--text-secondary);
   text-align: justify;
+}
+
+/* Justified text needs a long line to spread its spacing over. On a phone,
+   with five or six words a line, it opened gaps wide enough to read as holes
+   in the paragraph. Left-aligned there; justified where the line is long. */
+@media (max-width: 640px) {
+  .detail-meta .abstract-body { text-align: left; }
 }
 .detail-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
 
@@ -2220,6 +2515,48 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .result-cover.sky    { background: linear-gradient(135deg, #3498DB, #5DADE2); }
 
 .result-body { flex: 1; min-width: 0; }
+
+/* Status label on Browse cards — staff and super admins only (BrowsePage). */
+.result-status {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+}
+.result-status i { font-size: 10px; }
+
+/* Archived cards, which only staff ever see: dashed and flattened, the cover
+   drained of colour and the text dimmed, so they read as "set aside" at a
+   glance. The label and the buttons stay at full strength — dimming those
+   would make the one thing that explains the look the hardest to read. */
+.result-card.is-archived {
+  background: var(--bg-hover);
+  border: 1px dashed var(--border-medium);
+  box-shadow: none;
+}
+.result-card.is-archived:hover { box-shadow: var(--shadow-sm); }
+.result-card.is-archived .result-cover { filter: grayscale(1); opacity: 0.55; }
+.result-card.is-archived .result-title { color: var(--text-secondary); }
+.result-card.is-archived .result-authors,
+.result-card.is-archived .result-meta-row,
+.result-card.is-archived .result-abstract,
+.result-card.is-archived .result-keywords,
+.result-card.is-archived .result-stats { opacity: 0.6; }
+/* The light grey archived badge vanishes against the card's grey ground, so
+   on an archived card it turns solid. */
+.result-card.is-archived .result-status.badge-archived {
+  background: var(--text-secondary);
+  color: var(--bg-white);
+}
+
+/* Restricted cards (staff only, like the label): set apart but NOT dimmed —
+   unlike an archived item, a restricted one is live, and every signed-in
+   reader can open it. A stripe in the badge's own colour down the left edge,
+   fading into the card, makes it findable at a glance in a long list. */
+.result-card.is-restricted {
+  border-left: 4px solid var(--danger);
+  padding-left: 19px; /* 22px less the 3px the wider border adds */
+  background: linear-gradient(90deg, var(--danger-bg), var(--bg-white) 45%);
+}
 .result-title {
   font-size: 15px; font-weight: 600; color: var(--primary-blue);
   line-height: 1.35; margin-bottom: 4px; cursor: pointer; transition: color .15s;
@@ -2306,14 +2643,15 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   color: var(--text-secondary); font-size: 12.5px; font-family: inherit;
   transition: border-color .15s, color .15s;
 }
-.row-actions-btn:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
+.row-actions-btn:hover:not(:disabled) { border-color: var(--primary-blue); color: var(--primary-blue); }
+.row-actions-btn:disabled { opacity: .5; cursor: not-allowed; }
 .row-actions-btn i.caret { font-size: 10px; opacity: .7; }
 
 /* position:fixed, anchored to the button's own bounding rect — a table cell
    clips an absolutely-positioned child, which is what made the old cite menu
    disappear at the panel edge. */
 .row-actions-menu {
-  position: fixed; min-width: 208px; z-index: 61; overflow: hidden;
+  position: fixed; min-width: 208px; z-index: 102; /* just above its catcher (101) */ overflow: hidden;
   background: var(--bg-white); border: 1px solid var(--border-light);
   border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,.16);
   padding: 4px 0;

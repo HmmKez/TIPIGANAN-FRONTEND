@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { thesesApi, categoriesApi, scanInboxApi } from '../api/admin'
 import { citationsApi } from '../api'
+import ConfirmModal from '../components/ConfirmModal'
 
 const emptyForm = {
   title: '', authors: '', adviser: '', year_published: '',
@@ -16,6 +17,13 @@ const SCHOOL = 'Mater Dei College'
  * useful information is almost always "was this the one I just scanned?" — so
  * today's scans show only a time, and older ones a date.
  */
+/** "36 KB" rather than "0.0 MB", which reads as an empty or broken file. */
+function fileSizeLabel(bytes) {
+  if (!bytes) return '0 KB'
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 function scannedAtLabel(iso) {
   const when = new Date(iso)
   if (Number.isNaN(when.getTime())) return ''
@@ -45,7 +53,14 @@ export default function ThesisUploadPage() {
   // file. Mutually exclusive with pdfFile — the backend requires exactly one.
   const [scanFile, setScanFile] = useState(null)
   const [scans, setScans] = useState([])
+  // Everything waiting in the folder. Can exceed scans.length, which is capped
+  // to the newest 100 - so the heading counts this, not the rows on screen.
+  const [scanTotal, setScanTotal] = useState(0)
   const [scanState, setScanState] = useState('loading') // loading | ready | unavailable | off
+  // The scan awaiting confirmation before it is discarded. The whole entry,
+  // not just its name, so the confirmation can show its size, page count and
+  // time - the details that tell one scan from another.
+  const [confirmDiscard, setConfirmDiscard] = useState(null)
   const [scanError, setScanError] = useState('')
   const [coverFile, setCoverFile] = useState(null)
   const [categories, setCategories] = useState([])
@@ -76,6 +91,7 @@ export default function ThesisUploadPage() {
         // sends staff to check the scanner instead of the storage.
         if (d.available === false) { setScanState('unavailable'); setScanError(d.message || ''); return }
         setScans(d.files || [])
+        setScanTotal(d.total ?? (d.files || []).length)
         setScanState('ready')
       })
       .catch(() => setScanState('unavailable'))
@@ -83,11 +99,46 @@ export default function ThesisUploadPage() {
 
   useEffect(loadScans, [])
 
-  const discardScan = async (name) => {
-    if (!window.confirm(`Discard the scanned file "${name}"? This deletes it from the scan folder.`)) return
+  /**
+   * Open a waiting scan in a new tab so staff can see which thesis it is.
+   * Scanner file names ("ScanSnap_2026-09-22_09-14-03.pdf") say nothing about
+   * the contents, so with several waiting this is the only way to tell them
+   * apart before filing one.
+   *
+   * Same approach as the edit page's file preview: the endpoint needs the
+   * login token, so a plain link can't open it. The blank tab is opened
+   * synchronously inside the click so the popup blocker doesn't eat it after
+   * the download.
+   */
+  const viewScan = async (name) => {
+    const w = window.open('', '_blank')
     try {
-      await scanInboxApi.discard(name)
-      if (scanFile?.name === name) setScanFile(null)
+      const res = await scanInboxApi.preview(name)
+      const url = URL.createObjectURL(res.data)
+      if (w) w.location = url
+      else window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch {
+      if (w) w.close()
+      setError({ message: `"${name}" could not be opened. It may have been filed or discarded already — try Refresh.` })
+    }
+  }
+
+  /**
+   * Runs only after the confirmation screen. Discarding deletes the file from
+   * the scan folder for good - there is no bin to restore it from - so it is
+   * never done straight from the row's button.
+   *
+   * The dialog is closed before the request goes out, so a second click
+   * during a slow response cannot send a second delete.
+   */
+  const discardScanNow = async () => {
+    const scan = confirmDiscard
+    setConfirmDiscard(null)
+    if (!scan) return
+    try {
+      await scanInboxApi.discard(scan.name)
+      if (scanFile?.name === scan.name) setScanFile(null)
       loadScans()
     } catch {
       setError({ message: 'That scan could not be discarded. It may already be gone.' })
@@ -212,10 +263,11 @@ export default function ThesisUploadPage() {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Adviser <span className="req">*</span></label>
-                    <input type="text" className="form-control" required
+                    <label className="form-label">Adviser</label>
+                    <input type="text" className="form-control"
                            value={form.adviser} onChange={e => update('adviser', e.target.value)}
                            placeholder="e.g. Engr. Roberto Aquino" />
+                    <small className="text-muted" style={{ fontSize: 11 }}>Optional — leave blank if the item has no adviser (e.g. special collections)</small>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Year Published <span className="req">*</span></label>
@@ -299,51 +351,89 @@ export default function ThesisUploadPage() {
                     and browsing for it would be the slower path. */}
                 {scanState === 'ready' && scans.length > 0 && (
                   <div style={{ marginBottom: 18 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                    <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:10, flexWrap:'wrap' }}>
                       <i className="fas fa-print" style={{ color:'var(--primary-blue)' }}></i>
                       <b style={{ fontSize:13 }}>
-                        {scans.length} scanned {scans.length === 1 ? 'file' : 'files'} waiting
+                        {scanTotal} scanned {scanTotal === 1 ? 'file' : 'files'} waiting
                       </b>
+                      {/* Only when the backend capped the list: say so, rather
+                          than letting the rows on screen pass for all of them. */}
+                      {scanTotal > scans.length && (
+                        <span className="text-muted" style={{ fontSize:11 }}>
+                          (showing the newest {scans.length})
+                        </span>
+                      )}
                     </div>
 
-                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {/* A fixed-height box that scrolls, so a backlog of scans can
+                        never push the browse box below off the screen. Sized to
+                        show about four and a half rows: a row cut off at the
+                        bottom is the cue that there are more to scroll to. */}
+                    <div style={{
+                           display:'flex', flexDirection:'column', gap:8,
+                           maxHeight: 300, overflowY:'auto',
+                           paddingRight: scans.length > 4 ? 4 : 0,
+                         }}>
                       {scans.map(s => {
                         const chosen = scanFile?.name === s.name
                         return (
                           <div key={s.name}
+                               data-scan-name={s.name}
                                style={{
+                                 flex:'none',
                                  display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
                                  border:`1px solid ${chosen ? 'var(--primary-blue)' : 'var(--border-light)'}`,
                                  background: chosen ? 'var(--info-bg)' : 'var(--bg-white)',
                                  borderRadius:8,
                                }}>
                             <button type="button"
+                                    title={chosen ? 'Click to unselect' : `Use ${s.name}`}
                                     onClick={() => { setScanFile(chosen ? null : s); setPdfFile(null) }}
                                     style={{
-                                      flex:1, display:'flex', alignItems:'center', gap:10,
+                                      flex:1, minWidth:0, display:'flex', alignItems:'center', gap:10,
                                       background:'none', border:'none', padding:0, cursor:'pointer',
                                       textAlign:'left', color:'inherit', font:'inherit',
                                     }}>
                               <i className={`fas ${chosen ? 'fa-circle-check' : 'fa-file-pdf'}`}
-                                 style={{ color: chosen ? 'var(--primary-blue)' : 'var(--danger)', fontSize:16 }}></i>
+                                 style={{ color: chosen ? 'var(--primary-blue)' : 'var(--danger)', fontSize:16, flex:'none' }}></i>
                               <span style={{ minWidth:0 }}>
-                                <span style={{ display:'block', fontWeight:500, fontSize:13, overflow:'hidden',
-                                               textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                {/* Up to two lines, broken anywhere, instead of
+                                    one truncated line. On a phone the View and
+                                    Discard buttons leave about a dozen characters
+                                    of room, which cut every name to
+                                    "ScanSnap_2026…" - useless for telling scans
+                                    apart. Names longer than two lines still clip,
+                                    and the full name is in the tooltip. */}
+                                <span title={s.name}
+                                      style={{ display:'-webkit-box', WebkitBoxOrient:'vertical', WebkitLineClamp:2,
+                                               overflow:'hidden', wordBreak:'break-all', fontWeight:500, fontSize:13,
+                                               lineHeight:1.35 }}>
                                   {s.name}
                                 </span>
                                 <span className="text-muted" style={{ fontSize:11 }}>
-                                  {(s.size / 1024 / 1024).toFixed(1)} MB
+                                  {fileSizeLabel(s.size)}
                                   {s.pages ? ` · ${s.pages} page${s.pages === 1 ? '' : 's'}` : ''}
                                   {' · '}{scannedAtLabel(s.scanned_at)}
                                 </span>
                               </span>
                             </button>
-                            <button type="button" className="btn-icon" title="Discard this scan"
-                                    onClick={() => discardScan(s.name)}
-                                    style={{ background:'none', border:'none', cursor:'pointer',
-                                             color:'var(--text-muted)', padding:4 }}>
-                              <i className="fas fa-trash"></i>
-                            </button>
+
+                            {/* Labelled, not icon-only: the row itself already
+                                means "use this one", so the two extra actions
+                                have to say what they do at a glance. */}
+                            <div style={{ display:'flex', flexDirection:'column', gap:4, flex:'none', alignItems:'stretch' }}>
+                              <button type="button" className="btn btn-secondary btn-sm"
+                                      onClick={() => viewScan(s.name)}
+                                      style={{ width:'auto', padding:'3px 10px', fontSize:11.5, whiteSpace:'nowrap' }}>
+                                <i className="fas fa-eye"></i> View
+                              </button>
+                              <button type="button"
+                                      onClick={() => setConfirmDiscard(s)}
+                                      style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 4px',
+                                               fontSize:11, color:'var(--danger)', whiteSpace:'nowrap' }}>
+                                <i className="fas fa-trash"></i> Discard
+                              </button>
+                            </div>
                           </div>
                         )
                       })}
@@ -421,6 +511,39 @@ export default function ThesisUploadPage() {
           </div>
         </div>
       </form>
+
+      {/* Discarding deletes the scan from the folder permanently, so it always
+          goes through this screen. It names the file AND shows its size, pages
+          and time, and offers View, because scanner file names alone rarely
+          say which thesis is inside - the wrong one is easy to pick. */}
+      <ConfirmModal
+        open={!!confirmDiscard}
+        icon="fa-trash-alt"
+        confirmStyle="danger"
+        title="Discard this scan?"
+        message={confirmDiscard && (
+          <>
+            <span style={{ display:'block', fontWeight:600, color:'var(--text-primary)', wordBreak:'break-all' }}>
+              {confirmDiscard.name}
+            </span>
+            <span style={{ display:'block', fontSize:12, marginBottom:12 }}>
+              {fileSizeLabel(confirmDiscard.size)}
+              {confirmDiscard.pages ? ` · ${confirmDiscard.pages} page${confirmDiscard.pages === 1 ? '' : 's'}` : ''}
+              {' · '}scanned {scannedAtLabel(confirmDiscard.scanned_at)}
+            </span>
+            It will be deleted from the scan folder and <b>cannot be recovered</b>.
+            Not sure it's the right one?{' '}
+            <button type="button" onClick={() => viewScan(confirmDiscard.name)}
+                    style={{ background:'none', border:'none', padding:0, cursor:'pointer',
+                             color:'var(--primary-blue)', font:'inherit', textDecoration:'underline' }}>
+              View it first
+            </button>
+          </>
+        )}
+        confirmLabel="Discard"
+        onConfirm={discardScanNow}
+        onCancel={() => setConfirmDiscard(null)}
+      />
     </main>
   )
 }

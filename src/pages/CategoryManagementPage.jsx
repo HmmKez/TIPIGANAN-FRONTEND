@@ -129,7 +129,7 @@ export default function CategoryManagementPage() {
           </div>
         </div>
         <div className="table-wrap">
-          <table className="data-table">
+          <table className="data-table stack-on-phone">
             <thead>
               <tr>
                 <th>Cover</th>
@@ -147,7 +147,7 @@ export default function CategoryManagementPage() {
               )}
               {filtered.map(c => (
                 <tr key={c.id}>
-                  <td>
+                  <td data-label="Cover">
                     {c.cover_image_path ? (
                       <img src={`${apiOrigin}/storage/${c.cover_image_path}`} alt=""
                            style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
@@ -157,11 +157,11 @@ export default function CategoryManagementPage() {
                       </div>
                     )}
                   </td>
-                  <td><span className="badge badge-info">{c.code || '—'}</span></td>
-                  <td><b>{c.name}</b></td>
-                  <td>{c.theses_count ?? '—'}</td>
-                  <td>{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
-                  <td>
+                  <td data-label="Code"><span className="badge badge-info">{c.code || '—'}</span></td>
+                  <td className="cell-primary"><b>{c.name}</b></td>
+                  <td data-label="Total Items">{c.theses_count ?? '—'}</td>
+                  <td data-label="Created">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                  <td className="cell-actions">
                     {/* Only two actions, so the menu costs an extra click —
                         but one of them permanently deletes a collection, and a
                         labelled item behind a divider is far harder to hit by

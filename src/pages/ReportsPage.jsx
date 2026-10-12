@@ -180,7 +180,9 @@ export default function ReportsPage() {
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* flexWrap: two 150px date boxes plus their labels need ~380px, more
+              than a phone has, and without wrapping the "to" box was clipped. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Date</span>
             <input type="date" className="form-control" style={{ width: 150, padding: '5px 8px' }}
                    value={dateFrom} max={dateTo || undefined}
@@ -282,17 +284,17 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="table-wrap">
-            <table className="data-table">
+            <table className="data-table stack-on-phone">
               <thead>
                 <tr><th>#</th><th>Title</th><th>Authors</th><th>Citations</th></tr>
               </thead>
               <tbody>
                 {mostCited.map((row, i) => (
                   <tr key={row.thesis_id}>
-                    <td><b>{i + 1}</b></td>
-                    <td>{row.thesis?.title || `Thesis #${row.thesis_id}`}</td>
-                    <td>{row.thesis?.authors || '—'}</td>
-                    <td><b>{row.citation_count}</b></td>
+                    <td data-label="Rank"><b>{i + 1}</b></td>
+                    <td className="cell-primary"><b>{row.thesis?.title || `Thesis #${row.thesis_id}`}</b></td>
+                    <td data-label="Authors">{row.thesis?.authors || '—'}</td>
+                    <td data-label="Citations"><b>{row.citation_count}</b></td>
                   </tr>
                 ))}
                 {!filtering && mostCited.length === 0 && (
@@ -354,7 +356,9 @@ export default function ReportsPage() {
               {hasActiveFilters ? 'No activity matches the current filters.' : 'No data.'}
             </div>
           )}
-          <div className="bar-chart">
+          {/* bar-chart-dense: 24 hourly bars, unlike the five-or-so in the
+              charts above. See styles.css for why phones need it. */}
+          <div className="bar-chart bar-chart-dense">
             {usersOnline.map(item => (
               <div className="bar-col" key={item.hour}>
                 <div className="bar" style={{ height: `${Math.max(6, (Number(item.users_online) / maxHour) * 100)}%` }}>

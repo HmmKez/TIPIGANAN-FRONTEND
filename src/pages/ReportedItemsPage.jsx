@@ -77,7 +77,7 @@ export default function ReportedItemsPage() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="data-table">
+          <table className="data-table stack-on-phone">
             <thead>
               <tr>
                 <th>Item</th>
@@ -99,22 +99,22 @@ export default function ReportedItemsPage() {
               )}
               {reports.map(r => (
                 <tr key={r.id}>
-                  <td>
+                  <td className="cell-primary">
                     <b>{r.thesis?.title || `Thesis #${r.thesis_id}`}</b><br />
                     <span className="badge badge-info">{r.thesis?.category?.name || '—'}</span>{' '}
                     <span className={`badge ${r.thesis?.status === 'active' ? 'badge-active' : r.thesis?.status === 'restricted' ? 'badge-restricted' : 'badge-archived'}`}>
                       {r.thesis?.status || '—'}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Reported By">
                     {r.user
                       ? <><b>{userLabel(r.user)}</b><br /><small className="text-muted">{r.user.email}</small></>
                       : <span className="text-muted">Deleted user</span>}
                   </td>
-                  <td className="text-muted" style={{ maxWidth: 260 }}>{r.reason || <i>No reason given</i>}</td>
-                  <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
-                  {tab === 'resolved' && <td>{r.resolver?.name || '—'}</td>}
-                  <td>
+                  <td className="text-muted cell-block" data-label="Reason" style={{ maxWidth: 260 }}>{r.reason || <i>No reason given</i>}</td>
+                  <td data-label="Reported On">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
+                  {tab === 'resolved' && <td data-label="Resolved By">{r.resolver ? userLabel(r.resolver) : '—'}</td>}
+                  <td className="cell-actions">
                     <RowActions items={[
                       {
                         icon: 'fa-eye', label: 'View Item',

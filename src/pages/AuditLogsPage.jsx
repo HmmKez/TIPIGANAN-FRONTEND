@@ -141,8 +141,12 @@ export default function AuditLogsPage() {
       <div className="notice-banner" style={{ marginBottom: 16 }}>
         <i className="fas fa-info-circle"></i>
         <span>
-          Export PDF includes <b>Timestamp, User, Action, and Description</b> for the date range and
-          activity type currently selected below — set the range and tab first, then export.
+          {/* Matches AuditCsv::COLUMNS in the backend. This used to say "Export
+              PDF" and list four columns, beside a button that produces a CSV
+              with seven. */}
+          Export CSV includes <b>ID, Timestamp, User, Role, Action, Description, and IP Address</b> for
+          the date range and activity type currently selected below — set the range and tab first,
+          then export.
         </span>
       </div>
 
@@ -202,7 +206,7 @@ export default function AuditLogsPage() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="data-table">
+          <table className="data-table stack-on-phone">
             <thead>
               <tr>
                 <th>Timestamp</th>
@@ -220,22 +224,22 @@ export default function AuditLogsPage() {
               )}
               {logs.map(l => (
                 <tr key={l.id}>
-                  <td>{l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
-                  <td>
+                  <td data-label="When">{l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
+                  <td className="cell-primary">
                     {l.user
                       ? <><b>{userLabel(l.user)}</b><br /><small className="text-muted">{l.user.email}</small></>
                       : <span className="text-muted">System</span>}
                   </td>
-                  <td>
+                  <td data-label="Action">
                     <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <i className={`fas ${iconFor(l.action)}`}></i> {l.action}
                     </span>
                   </td>
-                  <td className="text-muted" style={{ maxWidth: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <td className="text-muted cell-truncate cell-block" data-label="Description">
                     {l.description}
                   </td>
-                  <td><code style={{ fontSize: 11 }}>{l.ip_address || '—'}</code></td>
-                  <td>
+                  <td data-label="IP Address"><code style={{ fontSize: 11 }}>{l.ip_address || '—'}</code></td>
+                  <td className="cell-actions">
                     {/* A named button rather than a dropdown: there is only
                         one action here, and wrapping a single item in a menu
                         would add a click to reach it while hiding it behind a

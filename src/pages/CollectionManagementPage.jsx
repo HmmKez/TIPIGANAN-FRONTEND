@@ -14,6 +14,7 @@ export default function CollectionManagementPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
+  const [notice, setNotice]       = useState(null)
 
   const [searchInput, setSearchInput] = useState('')
   const [query, setQuery]         = useState('')
@@ -55,6 +56,11 @@ export default function CollectionManagementPage() {
       .finally(() => setLoading(false))
   }
   useEffect(load, [categoryId, year, query, page, status, sort]) // eslint-disable-line
+
+  // A changed page or filter shows different rows, so the old ticks would point
+  // at items no longer on screen — and a bulk action would change those
+  // without anyone seeing them. Start from nothing selected instead.
+  useEffect(() => { setSelected(new Set()); setNotice(null) }, [categoryId, year, query, page, status])
 
   const toggleOne = (id) => {
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -125,17 +131,82 @@ export default function CollectionManagementPage() {
     confirmStyle: 'primary',
   })
 
-  const archiveSelected = () => {
-    if (selected.size === 0) return
+  // Bulk actions: every status change, plus delete for those allowed. Each
+  // runs one item at a time through the same endpoint as the per-row action,
+  // so the rules, audit entries and search-index updates are identical. Items
+  // already in the target status are skipped (no pointless audit entries), and
+  // failures are reported instead of swallowed — the old "Archive Selected"
+  // caught every error and said nothing.
+  const BULK = {
+    active: {
+      verb: 'set to Active', done: 'set to Active', label: 'Set Active', style: 'primary',
+      message: (p) => `${p.They} will be visible to everyone, including guests.`,
+    },
+    restricted: {
+      verb: 'restricted', done: 'restricted', label: 'Restrict', style: 'warning',
+      message: (p) => `Only signed-in students, teachers and staff will be able to find and read ${p.them}. Guests will not see ${p.them} at all.`,
+    },
+    archived: {
+      verb: 'archived', done: 'archived', label: 'Archive', style: 'warning',
+      message: (p) => `Students, teachers and guests will no longer be able to find or open ${p.them}; only staff can. Nothing is deleted, and readers keep their bookmarks — change the status back to bring ${p.them} back.`,
+    },
+  }
+
+  const runBulk = async (ids, action) => {
+    let ok = 0
+    const failed = []
+    for (const id of ids) {
+      try { await action(id); ok++ }
+      catch (e) { failed.push(e?.response?.data?.message || 'request failed') }
+    }
+    return { ok, failed }
+  }
+
+  const reportBulk = ({ ok, failed }, doneText, skipped) => {
+    // Reload FIRST: load() clears the error banner as it starts, so setting
+    // the failure message before it would wipe the message straight away.
+    setSelected(new Set()); load()
+    const parts = []
+    if (ok) parts.push(`${ok} item${ok > 1 ? 's' : ''} ${doneText}.`)
+    if (skipped) parts.push(`${skipped} already ${skipped > 1 ? 'were' : 'was'} — left as ${skipped > 1 ? 'they were' : 'it was'}.`)
+    setNotice(parts.join(' ') || null)
+    setError(failed.length
+      ? `${failed.length} item${failed.length > 1 ? 's' : ''} could not be changed: ${[...new Set(failed)].join('; ')}`
+      : null)
+  }
+
+  const statusSelected = (newStatus) => {
+    const b = BULK[newStatus]
+    const known = new Map(items.map(t => [t.id, t.status]))
+    const ids = [...selected].filter(id => known.get(id) !== newStatus)
+    const skipped = selected.size - ids.length
+    if (ids.length === 0) {
+      setError(null)
+      setNotice(`All ${selected.size} selected item${selected.size > 1 ? 's are' : ' is'} already ${b.done}.`)
+      return
+    }
     openModal({
-      title: `Archive ${selected.size} item${selected.size > 1 ? 's' : ''}?`,
-      message: `${selected.size} selected item${selected.size > 1 ? 's' : ''} will be moved to archived status and hidden from public browsing.`,
-      confirmLabel: 'Archive all selected',
-      confirmStyle: 'warning',
+      title: `${b.label} ${ids.length} item${ids.length > 1 ? 's' : ''}?`,
+      message: `${ids.length} selected item${ids.length > 1 ? 's' : ''} will be ${b.verb}. ${b.message(ids.length > 1 ? { They: 'They', them: 'them' } : { They: 'It', them: 'it' })}${skipped ? ` (${skipped} selected item${skipped > 1 ? 's are' : ' is'} already ${b.done} and will be left alone.)` : ''}`,
+      confirmLabel: `${b.label} ${ids.length}`,
+      confirmStyle: b.style,
       onConfirm: async () => {
         closeModal()
-        for (const id of selected) { try { await thesesApi.archive(id) } catch {} }
-        setSelected(new Set()); load()
+        reportBulk(await runBulk(ids, id => thesesApi.updateStatus(id, newStatus)), b.done, skipped)
+      },
+    })
+  }
+
+  const deleteSelected = () => {
+    const ids = [...selected]
+    openModal({
+      title: `Permanently delete ${ids.length} item${ids.length > 1 ? 's' : ''}?`,
+      message: `${ids.length} selected item${ids.length > 1 ? 's' : ''} will be permanently removed from the repository. This action cannot be undone. To hide items while keeping them, use Archive instead.`,
+      confirmLabel: `Delete ${ids.length} permanently`,
+      confirmStyle: 'danger',
+      onConfirm: async () => {
+        closeModal()
+        reportBulk(await runBulk(ids, id => thesesApi.remove(id)), 'deleted', 0)
       },
     })
   }
@@ -222,12 +293,35 @@ export default function CollectionManagementPage() {
           <b>{meta.total.toLocaleString()}</b> items · <b>{selected.size}</b> selected
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-sm btn-secondary" disabled={selected.size === 0} onClick={archiveSelected}>
-            <i className="fas fa-archive"></i> Archive Selected
-          </button>
+          {/* One menu for every bulk action, the same component as each row's
+              Actions menu. A plain disabled button stands in until something
+              is ticked, so the control is visible before it is usable. */}
+          {selected.size === 0 ? (
+            <button className="row-actions-btn" disabled title="Tick one or more items first">
+              With selected <i className="fas fa-chevron-down caret"></i>
+            </button>
+          ) : (
+            <RowActions
+              label={`With ${selected.size} selected`}
+              align="right"
+              items={[
+                { icon: 'fa-check-circle', label: 'Set Active', onClick: () => statusSelected('active') },
+                { icon: 'fa-user-lock', label: 'Restrict to Members', onClick: () => statusSelected('restricted') },
+                { icon: 'fa-archive', label: 'Archive', onClick: () => statusSelected('archived') },
+                canDeleteDocs && { divider: true },
+                canDeleteDocs && { icon: 'fa-trash', label: 'Delete Permanently', danger: true, onClick: deleteSelected },
+              ]}
+            />
+          )}
         </div>
       </div>
 
+      {notice && (
+        <div className="notice-banner success" style={{ marginBottom: 16 }} role="status">
+          <i className="fas fa-check-circle"></i>
+          <span>{notice}</span>
+        </div>
+      )}
       {error && (
         <div className="notice-banner warning" style={{ marginBottom: 16 }}>
           <i className="fas fa-exclamation-triangle"></i> <span>{error}</span>
@@ -236,7 +330,7 @@ export default function CollectionManagementPage() {
 
       <div className="panel">
         <div className="table-wrap">
-          <table className="data-table">
+          <table className="data-table stack-on-phone">
             <thead>
               <tr>
                 <th>
@@ -262,25 +356,25 @@ export default function CollectionManagementPage() {
               )}
               {items.map(t => (
                 <tr key={t.id}>
-                  <td>
+                  <td className="cell-select">
                     <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggleOne(t.id)} />
                   </td>
-                  <td>
+                  <td className="cell-primary">
                     <b>{t.title}</b><br />
                     <small className="text-muted">
                       {t.authors}{t.adviser ? ` · Adv: ${t.adviser}` : ''}
                     </small>
                   </td>
-                  <td><span className="badge badge-info">{t.category?.name || '—'}</span></td>
-                  <td>{t.year_published}</td>
-                  <td>{t.pages || '—'}</td>
-                  <td>
+                  <td data-label="Department"><span className="badge badge-info">{t.category?.name || '—'}</span></td>
+                  <td data-label="Year">{t.year_published}</td>
+                  <td data-label="Pages">{t.pages || '—'}</td>
+                  <td data-label="Status">
                     <span className={`badge ${t.status === 'active' ? 'badge-active' : t.status === 'restricted' ? 'badge-restricted' : 'badge-archived'}`}>
                       {t.status}
                     </span>
                   </td>
-                  <td>{t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}</td>
-                  <td>
+                  <td data-label="Date Added">{t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}</td>
+                  <td className="cell-actions">
                     {/* Named actions instead of six icons. "user-lock" vs
                         "unlock" vs "archive" vs "box-open" was four tooltips
                         to hover through, and restrict/archive are not

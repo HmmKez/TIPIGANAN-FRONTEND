@@ -9,6 +9,9 @@ import api from './axios'
 // folder. See config/scanner.php in the backend.
 export const scanInboxApi = {
   list:    ()     => api.get('/scan-inbox'),
+  // The PDF itself, for the View button. Fetched as a blob because the
+  // endpoint needs the login token, which a plain link can't send.
+  preview: (name) => api.get(`/scan-inbox/${encodeURIComponent(name)}/preview`, { responseType: 'blob' }),
   discard: (name) => api.delete(`/scan-inbox/${encodeURIComponent(name)}`),
 }
 
