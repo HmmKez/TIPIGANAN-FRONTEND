@@ -452,8 +452,8 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link to="/login" className="lp-btn-outline"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
-                <Link to="/register" className="lp-btn-primary"><i className="fas fa-user-plus"></i> Get Started</Link>
+                {/* No sign-up: accounts are activated at the library. */}
+                <Link to="/login" className="lp-btn-primary"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
               </>
             )}
           </div>
@@ -476,8 +476,8 @@ export default function LandingPage() {
                   <i className="fas fa-th-large"></i> Go to Dashboard
                 </Link>
               ) : (
-                <Link to="/register" className="lp-hero-cta">
-                  <i className="fas fa-rocket"></i> Get Started
+                <Link to="/login" className="lp-hero-cta">
+                  <i className="fas fa-sign-in-alt"></i> Sign In
                 </Link>
               )}
               <Link to="/browse" className="lp-hero-secondary"><i className="fas fa-book-open"></i> Browse Collections</Link>
@@ -667,10 +667,10 @@ export default function LandingPage() {
           ) : (
             <>
               <h2>Ready to Explore MDC's Academic Heritage?</h2>
-              <p>Join students, faculty, and researchers already using TIPIGANAN to access special collections and rare academic works.</p>
+              <p>Current MDC students and teachers can read the full collection. To get an account, visit the library with your school ID card and the staff will activate it for you.</p>
               <div className="lp-cta-buttons">
-                <Link to="/register" className="lp-hero-cta" style={{color:'#345FCF'}}><i className="fas fa-user-plus"></i> Create Free Account</Link>
-                <Link to="/login" className="lp-hero-secondary"><i className="fas fa-sign-in-alt"></i> Sign In</Link>
+                <Link to="/login" className="lp-hero-cta" style={{color:'#345FCF'}}><i className="fas fa-sign-in-alt"></i> Sign In</Link>
+                <Link to="/browse" className="lp-hero-secondary"><i className="fas fa-book-open"></i> Browse Collections</Link>
               </div>
             </>
           )}
@@ -700,7 +700,6 @@ export default function LandingPage() {
                 ) : (
                   <>
                     <li><Link to="/login">Sign In</Link></li>
-                    <li><Link to="/register">Register</Link></li>
                   </>
                 )}
               </ul>

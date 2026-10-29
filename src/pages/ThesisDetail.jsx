@@ -221,7 +221,8 @@ export default function ThesisDetail() {
 
               {/* Optional since 2026-10-12: many collection items have no adviser. */}
               {thesis.adviser && <div className="row"><b>Adviser:</b> <span>{thesis.adviser}</span></div>}
-              <div className="row"><b>Year Published:</b> <span>{thesis.year_published}</span></div>
+              {/* Optional since 2026-10-20: many collection items state no year. */}
+              {thesis.year && <div className="row"><b>Year:</b> <span>{thesis.year}</span></div>}
               <div className="row"><b>Department:</b> <span>{deptName}</span></div>
               {thesis.pages != null && <div className="row"><b>Pages:</b> <span>{thesis.pages} pages</span></div>}
               <div className="row">
@@ -314,7 +315,7 @@ export default function ThesisDetail() {
                   <Link key={r.id} to={`/theses/${r.id}`} className="thesis-card">
                     <div className="thesis-cover">
                       <span className="dept-tag">{rDept}</span>
-                      <span className="year-tag">{r.year_published}</span>
+                      {r.year && <span className="year-tag">{r.year}</span>}
                       <i className="fas fa-file-alt" />
                     </div>
                     <div className="thesis-info">

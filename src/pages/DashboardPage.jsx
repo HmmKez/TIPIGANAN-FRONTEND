@@ -184,7 +184,7 @@ export default function DashboardPage() {
                   <div className="cr-meta">
                     {t.department && <span className="cr-dept">{t.department}</span>}
                     {t.department && <span className="cr-dot"></span>}
-                    <span><i className="fas fa-calendar-alt"></i> {t.year_published || t.year || '—'}</span>
+                    <span><i className="fas fa-calendar-alt"></i> {t.year || '—'}</span>
                     {t.adviser && (<>
                       <span className="cr-dot"></span>
                       <span><i className="fas fa-user-tie"></i> {t.adviser}</span>

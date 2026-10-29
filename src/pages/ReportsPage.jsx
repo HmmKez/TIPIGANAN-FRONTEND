@@ -262,11 +262,11 @@ export default function ReportsPage() {
             {byYear.length === 0 && !loading && <div className="text-muted" style={{ padding: 20 }}>No data.</div>}
             <div className="bar-chart">
               {byYear.map(item => (
-                <div className="bar-col" key={item.year_published}>
+                <div className="bar-col" key={item.year ?? 'none'}>
                   <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxYear) * 100)}%` }}>
                     <span className="bar-value">{item.total}</span>
                   </div>
-                  <span className="bar-label">{item.year_published}</span>
+                  <span className="bar-label">{item.year ?? 'No year'}</span>
                 </div>
               ))}
             </div>

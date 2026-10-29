@@ -102,7 +102,7 @@ export default function ReadingHistoryPage() {
                         <small className="text-muted">{t.authors}</small>
                       </td>
                       <td><span className="badge badge-info">{t.category?.name || '—'}</span></td>
-                      <td>{t.year_published || '—'}</td>
+                      <td>{t.year || '—'}</td>
                       <td><small>{new Date(h.viewed_at).toLocaleString()}</small></td>
                       <td>
                         <Link to={`/theses/${t.id}`} className="btn btn-sm btn-primary">

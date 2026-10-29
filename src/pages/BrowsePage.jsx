@@ -98,7 +98,8 @@ export default function BrowsePage() {
 
   const [categories, setCategories] = useState([])
   const [categoryId, setCategoryId] = useState(params.get('category_id') || '')
-  const [year, setYear] = useState(params.get('year_published') || '')
+  // The old parameter name is still read so links made before the rename keep working.
+  const [year, setYear] = useState(params.get('year') || params.get('year_published') || '')
   const [sort, setSort] = useState(params.get('sort') || 'recent')
 
   const [items, setItems] = useState([])
@@ -127,14 +128,14 @@ export default function BrowsePage() {
           params: {
             q: query,
             category_id: categoryId || undefined,
-            year_published: year || undefined,
+            year: year || undefined,
             status: statusParam,
           },
         })
       : api.get('/theses', {
           params: {
             category_id: categoryId || undefined,
-            year_published: year || undefined,
+            year: year || undefined,
             status: statusParam,
             page,
           },
@@ -181,7 +182,7 @@ export default function BrowsePage() {
     const next = {}
     if (query)      next.q = query
     if (categoryId) next.category_id = categoryId
-    if (year)       next.year_published = year
+    if (year)       next.year = year
     if (statusParam) next.status = statusParam
     if (sort !== 'recent') next.sort = sort
     if (page !== 1) next.page = String(page)
@@ -412,7 +413,7 @@ export default function BrowsePage() {
                 <div className="filter-divider"></div>
 
                 <div className="filter-group">
-                  <div className="filter-group-label">Publication Year</div>
+                  <div className="filter-group-label">Year</div>
                   <select
                     className="filter-select"
                     style={{ width: '100%' }}
@@ -555,11 +556,11 @@ export default function BrowsePage() {
                             <span className="result-dept-badge" title={cat}>{deptCode}</span>
                           )}
                           {deptCode && <span className="dot"></span>}
-                          {t.year_published && (
+                          {t.year && (
                             <>
                               <span className="result-year">
                                 <i className="fas fa-calendar-alt" style={{ fontSize: 10, marginRight: 3 }}></i>
-                                {t.year_published}
+                                {t.year}
                               </span>
                               <span className="dot"></span>
                             </>

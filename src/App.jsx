@@ -20,13 +20,13 @@ const ReportsPage              = lazy(() => import('./pages/ReportsPage'))
 const ReportedItemsPage        = lazy(() => import('./pages/ReportedItemsPage'))
 const ThesisDetail             = lazy(() => import('./pages/ThesisDetail'))
 const LoginPage                = lazy(() => import('./pages/LoginPage'))
-const RegisterPage             = lazy(() => import('./pages/RegisterPage'))
 const LandingPage              = lazy(() => import('./pages/LandingPage'))
 const BrowsePage                = lazy(() => import('./pages/BrowsePage'))
 const DashboardPage             = lazy(() => import('./pages/DashboardPage'))
 const BookmarksPage             = lazy(() => import('./pages/BookmarksPage'))
 const ProfilePage               = lazy(() => import('./pages/ProfilePage'))
 const ReadingHistoryPage        = lazy(() => import('./pages/ReadingHistoryPage'))
+const SchoolRecordsPage         = lazy(() => import('./pages/SchoolRecordsPage'))
 
 function InLayout({ children, adminOnly = false }) {
   return (
@@ -78,7 +78,8 @@ export default function App() {
         <Route path="/home" element={<HomeRedirect />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/LoginPage" element={<Navigate to="/login" replace />} />
-        <Route path="/register" element={<RegisterPage />} />
+        {/* No self-registration: accounts are activated at the library. Old links land on sign-in. */}
+        <Route path="/register" element={<Navigate to="/login" replace />} />
 
         {/* Public browsing — guests can browse, search, and view thesis details */}
         <Route path="/theses/:id" element={<PublicLayout><ThesisDetail /></PublicLayout>} />
@@ -106,6 +107,8 @@ export default function App() {
         <Route path="/admin/theses/:id/edit" element={<Admin><ThesisEditPage /></Admin>} />
         <Route path="/admin/categories"  element={<Admin><CategoryManagementPage /></Admin>} />
         <Route path="/admin/users"       element={<Admin><UserManagementPage /></Admin>} />
+        {/* Staff: Activate an Account. Super Admin: also the school list. The API checks each part. */}
+        <Route path="/admin/school-records" element={<Admin><SchoolRecordsPage /></Admin>} />
         <Route path="/admin/audit-logs"  element={<Admin><AuditLogsPage /></Admin>} />
         <Route path="/admin/reports"     element={<Admin><ReportsPage /></Admin>} />
         <Route path="/admin/reported-items" element={<Admin><ReportedItemsPage /></Admin>} />

@@ -28,7 +28,9 @@ export default function ProfilePage() {
   const { logout, updateUser } = useAuth()
   const { theme, setTheme, reduceMotion, setReduceMotion } = useTheme()
   const { notify } = useToast()
-  const [activeTab, setActiveTab] = useState('personal')
+  // ?tab=security opens the password form directly (the starting-password reminder links here).
+  const [activeTab, setActiveTab] = useState(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'security' ? 'security' : 'personal')
   const [data, setData] = useState(null) // { user, roles, permissions, favorites, history }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -94,6 +96,8 @@ export default function ProfilePage() {
         password_confirmation: confirmPassword,
       })
       setPasswordMsg({ type: 'success', text: 'Password changed successfully.' })
+      // Their own password now - the reminder goes away.
+      updateUser({ must_change_password: false })
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
     } catch (err) {
       setPasswordMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to change password.' })

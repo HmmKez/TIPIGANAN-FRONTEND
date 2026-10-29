@@ -13,7 +13,7 @@ import ConfirmModal from './ConfirmModal'
 import ActiveTermBadge from './ActiveTermBadge'
 import { MDC_LOGO } from '../config/branding'
 
-function getMenu(isAdmin, isGuest) {
+function getMenu(isAdmin, isGuest, showSchoolRecords = false) {
   if (isGuest) {
     return [
       // No separate "Search" tab: Browse is the single entry point and already
@@ -44,6 +44,11 @@ function getMenu(isAdmin, isGuest) {
       { to: '/admin/reported-items',  icon: 'fa-flag',           label: 'Reported Items' },
       { to: '/admin/audit-logs',      icon: 'fa-clipboard-list', label: 'Audit Logs' },
       { to: '/admin/reports',         icon: 'fa-chart-bar',      label: 'Reports & Analytics' },
+      // Super Admin (the school list) and every staff member who can activate
+      // accounts at the library desk.
+      ...(showSchoolRecords
+        ? [{ to: '/admin/school-records', icon: 'fa-address-book', label: 'School Records' }]
+        : []),
     ] })
   }
 
@@ -70,7 +75,10 @@ const MOBILE_BREAKPOINT = 768
 
 export default function Layout({ children }) {
   const navigate = useNavigate()
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin, logout, hasPermission } = useAuth()
+  const [pwReminderLater, setPwReminderLater] = useState(() => {
+    try { return sessionStorage.getItem(`tipiganan_pw_reminder_later_${user?.id}`) === '1' } catch { return false }
+  })
   const isGuest = !user
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     typeof window === 'undefined' || window.innerWidth > MOBILE_BREAKPOINT
@@ -91,7 +99,7 @@ export default function Layout({ children }) {
                    : user?.role === 'teacher'      ? 'Teacher'
                    : 'Student'
 
-  const menu = getMenu(isAdmin, isGuest)
+  const menu = getMenu(isAdmin, isGuest, user?.role === 'super_admin' || hasPermission('activate_accounts'))
 
   const handleLogout = async () => {
     setLogoutConfirmOpen(false)
@@ -185,11 +193,9 @@ export default function Layout({ children }) {
 
             {isGuest ? (
               <>
-                <Link to="/login" className="btn btn-secondary btn-sm">
+                {/* No Register button: accounts are activated at the library. */}
+                <Link to="/login" className="btn btn-primary btn-sm">
                   <i className="fas fa-sign-in-alt"></i> Sign In
-                </Link>
-                <Link to="/register" className="btn btn-primary btn-sm">
-                  <i className="fas fa-user-plus"></i> Register
                 </Link>
               </>
             ) : (
@@ -260,6 +266,21 @@ export default function Layout({ children }) {
             )}
           </div>
         </header>
+
+        {/* The password was set by library staff (a password reset), so
+            someone else knows it. A reminder, not a block: "Later" hides it
+            until the next sign-in or browser tab. */}
+        {user?.must_change_password && !pwReminderLater && (
+          <div className="pw-reminder" role="status">
+            <i className="fas fa-key"></i>
+            <span>Your password was <b>set by the library</b>. Change it to one only you know.</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/profile?tab=security')}>Change password</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => {
+              setPwReminderLater(true)
+              try { sessionStorage.setItem(`tipiganan_pw_reminder_later_${user?.id}`, '1') } catch { /* ignore */ }
+            }}>Later</button>
+          </div>
+        )}
 
         <main className="content">{children}</main>
 

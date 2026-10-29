@@ -23,6 +23,9 @@ export const thesesApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   update:  (id, data) => api.put(`/theses/${id}`, data),
+  // Items with the same title and a shared author - the upload form's live
+  // "possible duplicate" warning. { matches: [...] }
+  duplicateCheck: (title, authors) => api.get('/duplicate-check', { params: { title, authors } }),
   archive: (id)       => api.patch(`/theses/${id}/archive`),
   updateStatus: (id, status) => api.patch(`/theses/${id}/status`, { status }),
   remove:  (id)       => api.delete(`/theses/${id}`),        // requires delete_documents permission
@@ -60,9 +63,9 @@ export const categoriesApi = {
 export const usersApi = {
   list:    (params) => api.get('/users', { params }),
   get:     (id)     => api.get(`/users/${id}`),
-  // No create(). Accounts are never made by an admin — everyone registers
-  // themselves with their school ID number, and a Super Admin promotes an
-  // existing account instead. The POST /users endpoint is gone on the backend.
+  // No create(). Accounts are made only by activation at the library
+  // (activationApi below), and a Super Admin promotes an existing account
+  // instead. The POST /users endpoint is gone on the backend.
   changeRole: (id, role) => api.patch(`/users/${id}/role`, { role }),   // super_admin
   update:  (id, d)  => api.put(`/users/${id}`, d),                      // super_admin
   remove:  (id)     => api.delete(`/users/${id}`),                      // requires delete_accounts permission
@@ -107,4 +110,28 @@ export const reportsApi = {
 export const thesisReportsApi = {
   list:    (params) => api.get('/thesis-reports', { params }),
   resolve: (id)      => api.patch(`/thesis-reports/${id}/resolve`),
+}
+
+// ============ SCHOOL RECORDS (Super Admin) ============
+// The school's list of who may use the system, imported from a CSV.
+export const schoolRosterApi = {
+  get: () => api.get('/school-roster'),
+  people: (params) => api.get('/school-roster/people', { params }),
+  preview: (file) => {
+    const data = new FormData(); data.append('file', file)
+    return api.post('/school-roster/preview', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  import: (file, confirmSmaller = false) => {
+    const data = new FormData(); data.append('file', file)
+    if (confirmSmaller) data.append('confirm_smaller', '1')
+    return api.post('/school-roster/import', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+}
+
+// ============ ACCOUNT ACTIVATION (staff, at the library desk) ============
+// The only way an account is made: staff look the ID up on the school's list
+// and confirm the name, then the person types their own email and password.
+export const activationApi = {
+  lookup:   (idNumber) => api.post('/accounts/activation/lookup', { id_number: idNumber }),
+  activate: (data)     => api.post('/accounts/activation', data),
 }

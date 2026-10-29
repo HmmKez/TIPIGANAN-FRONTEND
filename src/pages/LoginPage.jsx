@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
 import { MDC_LOGO } from '../config/branding'
+import PasswordInput from '../components/PasswordInput'
 
 export default function LoginPage() {
   const [idNumber, setIdNumber] = useState('')
@@ -102,8 +103,8 @@ export default function LoginPage() {
             </div>
             <div className="form-group">
               <label className="form-label">Password <span className="req">*</span></label>
-              <input type="password" className="form-control" placeholder="Enter your password"
-                     value={password} onChange={e => setPassword(e.target.value)} required />
+              <PasswordInput placeholder="Enter your password" autoComplete="current-password"
+                             value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
 
             <div className="checkbox-row">
@@ -129,7 +130,7 @@ export default function LoginPage() {
             </button>
 
             <div className="auth-foot">
-              New to TIPIGANAN? <Link to="/register">Create an account</Link>
+              No account yet? Visit the library with your school ID card to have it activated.
             </div>
           </form>
 

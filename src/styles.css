@@ -1859,6 +1859,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .page-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .page-btn.active { background: var(--primary-blue); color: #fff; border-color: var(--primary-blue); }
+/* The hover background must not cover the current page, or its white number
+   vanishes while the pointer is still on it right after clicking. */
+.page-btn.active:hover:not(:disabled) { background: var(--primary-blue); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ============ ACTIVITY LIST ============ */
@@ -2450,6 +2453,46 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   display: flex; align-items: center; gap: 8px;
   font-size: 12.5px; color: var(--text-secondary); cursor: pointer;
 }
+/* Upload form: "possible duplicate" warning under the authors field. Amber,
+   because it asks for a look rather than stopping anything. */
+/* Any disabled button looks disabled. There was no such rule, so a button that
+   could not be pressed (e.g. Import while the list is blocked, Save while saving)
+   looked exactly like one that could. */
+.btn:disabled, .btn[disabled] { opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+/* Reminder bar: the password was set by library staff (a reset). */
+.pw-reminder {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px;
+  margin: 16px 24px 0; padding: 10px 14px; border-radius: 8px;
+  background: var(--warning-bg); border: 1px solid var(--warning); color: var(--text-primary); font-size: 13.5px;
+}
+.pw-reminder > i { color: var(--warning); }
+.pw-reminder > span { flex: 1 1 240px; min-width: 0; }
+.pw-reminder .btn { width: auto; }
+
+/* School Records page */
+.roster-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.roster-count { padding: 10px 12px; border-radius: 8px; background: var(--bg-hover); display: flex; flex-direction: column; gap: 2px; }
+.roster-count b { font-size: 20px; color: var(--text-primary); }
+.roster-count span { font-size: 12px; color: var(--text-muted); }
+.roster-upload { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.roster-people { margin: 6px 0 0 18px; padding: 0; font-size: 13px; }
+@media (max-width: 640px) {
+  .roster-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pw-reminder { margin: 12px 12px 0; }
+}
+
+.dup-warning {
+  margin: -4px 0 16px; padding: 12px 14px; border-radius: 8px;
+  background: var(--warning-bg); border: 1px solid var(--warning);
+  font-size: 13px; color: var(--text-primary);
+}
+.dup-warning-title { font-weight: 600; color: var(--warning); margin-bottom: 6px; }
+.dup-warning-title i { margin-right: 6px; }
+.dup-warning ul { margin: 0 0 6px 18px; padding: 0; }
+.dup-warning li { margin-bottom: 3px; }
+.dup-warning-note { font-size: 12px; color: var(--text-secondary); }
+
 .filter-option input[type=radio],
 .filter-option input[type=checkbox] { accent-color: var(--primary-blue); width: 13px; height: 13px; }
 .filter-count {
@@ -2758,3 +2801,30 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   letter-spacing: 0.2px;
   color: rgba(255, 0, 0, 0.38);
 }
+/* Password box with a show/hide eye on the right (components/PasswordInput). */
+.password-field { position: relative; }
+.password-field .form-control { padding-right: 44px; }
+/* Edge draws its own reveal eye inside password boxes; hide it so there is one. */
+.password-field input::-ms-reveal, .password-field input::-ms-clear { display: none; }
+.password-toggle {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  width: 34px; height: 34px; border: 0; border-radius: 6px; background: transparent;
+  color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.password-toggle:hover { color: var(--text-primary); background: rgba(127, 127, 127, .1); }
+.password-toggle:focus-visible { outline: 2px solid var(--primary-blue); outline-offset: 1px; }
+
+/* Activate an Account (School Records) - staff at the library desk. */
+.activate-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; padding: 0; margin: 0 0 18px; counter-reset: step; font-size: 12px; color: var(--text-muted); }
+.activate-steps li { counter-increment: step; display: flex; align-items: center; gap: 6px; }
+.activate-steps li::before { content: counter(step); width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; border: 1px solid var(--border-medium); }
+.activate-steps li.current { color: var(--text-primary); font-weight: 600; }
+.activate-steps li.current::before { background: var(--primary-blue); border-color: var(--primary-blue); color: #fff; }
+.activate-steps li.done::before { content: '\2713'; background: rgba(46, 160, 67, .15); border-color: transparent; color: #2ea043; }
+.activate-person { border: 1px solid var(--border-medium); border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+.activate-person-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.activate-person-name { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; overflow-wrap: anywhere; }
+.activate-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.45; }
+.activate-check input { margin-top: 3px; flex-shrink: 0; }
+.activate-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; max-width: 760px; }
+.field-error { display: block; color: #d1242f; font-size: 12px; margin-top: 4px; }

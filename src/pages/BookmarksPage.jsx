@@ -200,7 +200,7 @@ export default function BookmarksPage() {
       text += `${i + 1}. ${t.title}\n`
       text += `   Author(s): ${t.authors}\n`
       text += `   Department: ${t.category?.name || '—'}\n`
-      text += `   Year: ${t.year_published || '—'}\n`
+      text += `   Year: ${t.year || '—'}\n`
       text += `   Saved: ${new Date(f.created_at).toLocaleDateString()}\n\n`
     })
     const blob = new Blob([text], { type: 'text/plain' })
@@ -303,7 +303,7 @@ export default function BookmarksPage() {
                     <i className={`fas ${DEPT_ICONS[code] || 'fa-file-alt'}`}></i>
                   )}
                   {!isDeleted && <span className="dept-tag" title={fullName}>{code}</span>}
-                  {!isDeleted && <span className="year-tag">{t.year_published || '—'}</span>}
+                  {!isDeleted && <span className="year-tag">{t.year || '—'}</span>}
                 </div>
                 <div className="thesis-info">
                   {isDeleted ? (
@@ -324,7 +324,7 @@ export default function BookmarksPage() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
                         <span>{progress > 0 ? `${progress}% read` : 'Not started yet'}</span>
-                        {t.year_published ? <span>{t.year_published}</span> : null}
+                        {t.year ? <span>{t.year}</span> : null}
                       </div>
                     </>
                   )}

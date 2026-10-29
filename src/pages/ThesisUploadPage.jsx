@@ -4,8 +4,22 @@ import { thesesApi, categoriesApi, scanInboxApi } from '../api/admin'
 import { citationsApi } from '../api'
 import ConfirmModal from '../components/ConfirmModal'
 
+// One existing item a new upload may repeat: its title (opening in a new tab,
+// so the half-filled form is not lost), year, authors, and status if it is not
+// plainly active.
+function DupLink({ m }) {
+  return (
+    <>
+      <Link to={`/theses/${m.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>{m.title}</Link>
+      {m.year ? ` (${m.year})` : ''}
+      {m.authors ? <span style={{ color: 'var(--text-muted)' }}> — {m.authors}</span> : null}
+      {m.status && m.status !== 'active' ? <span className={`badge badge-${m.status}`} style={{ marginLeft: 6 }}>{m.status}</span> : null}
+    </>
+  )
+}
+
 const emptyForm = {
-  title: '', authors: '', adviser: '', year_published: '',
+  title: '', authors: '', adviser: '', year: '',
   category_id: '', pages: '', abstract: '', keywords: '',
 }
 
@@ -35,13 +49,16 @@ function scannedAtLabel(iso) {
 
 // Mirrors CitationController::generate()'s default formula exactly, so the
 // live preview matches what actually gets saved.
-function defaultApa({ authors, year_published, title }) {
-  if (!authors || !year_published || !title) return ''
-  return `${authors} (${year_published}). ${title} [Unpublished thesis]. ${SCHOOL}.`
+// The year is optional, so a citation without one writes "n.d." (no date),
+// as APA and MLA both do. Same text the server generates (CitationController).
+function defaultApa({ authors, year, title }) {
+  if (!authors || !title) return ''
+  return `${authors} (${year || 'n.d.'}). ${title} [Unpublished thesis]. ${SCHOOL}.`
 }
-function defaultMla({ authors, year_published, title }) {
-  if (!authors || !year_published || !title) return ''
-  return `${authors}. "${title}." Unpublished thesis, ${SCHOOL}, ${year_published}.`
+function defaultMla({ authors, year, title }) {
+  if (!authors || !title) return ''
+  // "n.d." already ends in a full stop — no second one after it.
+  return `${authors}. "${title}." Unpublished thesis, ${SCHOOL}, ${year ? `${year}.` : 'n.d.'}`
 }
 
 export default function ThesisUploadPage() {
@@ -61,6 +78,10 @@ export default function ThesisUploadPage() {
   // not just its name, so the confirmation can show its size, page count and
   // time - the details that tell one scan from another.
   const [confirmDiscard, setConfirmDiscard] = useState(null)
+  // Possible duplicates: same title and at least one author in common. Shown
+  // live as staff type, and asked about once more if they submit anyway.
+  const [dupMatches, setDupMatches] = useState([])
+  const [confirmDup, setConfirmDup] = useState(null)
   const [scanError, setScanError] = useState('')
   const [coverFile, setCoverFile] = useState(null)
   const [categories, setCategories] = useState([])
@@ -145,13 +166,25 @@ export default function ThesisUploadPage() {
     }
   }
 
-  useEffect(() => { if (!apaEdited) setApaText(defaultApa(form)) }, [form.authors, form.year_published, form.title, apaEdited])
-  useEffect(() => { if (!mlaEdited) setMlaText(defaultMla(form)) }, [form.authors, form.year_published, form.title, mlaEdited])
+  useEffect(() => { if (!apaEdited) setApaText(defaultApa(form)) }, [form.authors, form.year, form.title, apaEdited])
+  useEffect(() => { if (!mlaEdited) setMlaText(defaultMla(form)) }, [form.authors, form.year, form.title, mlaEdited])
 
   const update = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  const submit = async (e) => {
-    e.preventDefault()
+  useEffect(() => {
+    const title = form.title.trim(), authors = form.authors.trim()
+    if (title.length < 3 || !authors) { setDupMatches([]); return }
+    let cancelled = false
+    const t = setTimeout(() => {
+      thesesApi.duplicateCheck(title, authors)
+        .then(r => { if (!cancelled) setDupMatches(r.data?.matches || []) })
+        .catch(() => { /* a failed check never blocks typing; the server checks again on save */ })
+    }, 600)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [form.title, form.authors])
+
+  const submit = async (e, confirmDuplicate = false) => {
+    e?.preventDefault?.()
     if (!pdfFile && !scanFile) {
       setError({ message: 'Attach a PDF, or choose one of the scanned files waiting.' })
       return
@@ -166,6 +199,7 @@ export default function ThesisUploadPage() {
       if (scanFile) data.append('scan_file', scanFile.name)
       else          data.append('pdf_file', pdfFile)
       if (coverFile) data.append('cover_image', coverFile)
+      if (confirmDuplicate) data.append('confirm_duplicate', '1')
       const res = await thesesApi.create(data)
       const newId = res.data?.id
 
@@ -200,9 +234,17 @@ export default function ThesisUploadPage() {
         900,
       )
     } catch (err) {
-      const errs = err?.response?.data?.errors
-      setError({ message: errs ? Object.values(errs).flat().join(' ') :
-                  (err?.response?.data?.message || 'Upload failed.') })
+      const body = err?.response?.data || {}
+      if (err?.response?.status === 409 && body.reason === 'possible_duplicate') {
+        // Not certain - ask, and let staff go ahead.
+        setConfirmDup(body.matches || [])
+      } else if (err?.response?.status === 409 && body.reason === 'same_file') {
+        // Certain - the exact file is already filed. Point at it.
+        setError({ message: body.message, duplicateOf: body.duplicate_of })
+      } else {
+        const errs = body.errors
+        setError({ message: errs ? Object.values(errs).flat().join(' ') : (body.message || 'Upload failed.') })
+      }
     } finally { setSubmitting(false) }
   }
 
@@ -230,7 +272,13 @@ export default function ThesisUploadPage() {
 
       {error && (
         <div className="notice-banner warning" style={{ marginBottom: 16 }}>
-          <i className="fas fa-exclamation-triangle"></i> <span>{error.message}</span>
+          <i className="fas fa-exclamation-triangle"></i>
+          <span>
+            {error.message}
+            {error.duplicateOf && (
+              <> <Link to={`/theses/${error.duplicateOf.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>Open it</Link></>
+            )}
+          </span>
         </div>
       )}
       {success && (
@@ -261,6 +309,17 @@ export default function ThesisUploadPage() {
                          placeholder="e.g. Reyes, Maria C.; Santos, Andrew P." />
                   <small className="text-muted" style={{ fontSize: 11 }}>Separate multiple authors with semicolons</small>
                 </div>
+                {dupMatches.length > 0 && (
+                  <div className="dup-warning" role="status">
+                    <div className="dup-warning-title">
+                      <i className="fas fa-clone"></i> Possible duplicate — already in the repository:
+                    </div>
+                    <ul>
+                      {dupMatches.map(m => <li key={m.id}><DupLink m={m} /></li>)}
+                    </ul>
+                    <div className="dup-warning-note">Same title and at least one author in common. If this is a different item, you can still upload it.</div>
+                  </div>
+                )}
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Adviser</label>
@@ -270,10 +329,11 @@ export default function ThesisUploadPage() {
                     <small className="text-muted" style={{ fontSize: 11 }}>Optional — leave blank if the item has no adviser (e.g. special collections)</small>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Year Published <span className="req">*</span></label>
-                    <input type="number" className="form-control" required min="1900" max="2030"
-                           value={form.year_published} onChange={e => update('year_published', e.target.value)}
-                           placeholder="2026" />
+                    <label className="form-label">Year</label>
+                    <input type="number" className="form-control" min="1950" max={new Date().getFullYear() + 1}
+                           value={form.year} onChange={e => update('year', e.target.value)}
+                           placeholder="e.g. 2024" />
+                    <small className="text-muted" style={{ fontSize: 11 }}>Optional — leave blank to detect it from the PDF</small>
                   </div>
                 </div>
                 <div className="form-row">
@@ -511,6 +571,26 @@ export default function ThesisUploadPage() {
           </div>
         </div>
       </form>
+
+      <ConfirmModal
+        open={!!confirmDup}
+        icon="fa-clone"
+        confirmStyle="warning"
+        title="Upload anyway?"
+        message={confirmDup && (
+          <>
+            This looks like {confirmDup.length === 1 ? 'an item' : 'items'} already in the repository —
+            same title and at least one author in common:
+            <span style={{ display: 'block', margin: '10px 0', textAlign: 'left' }}>
+              {confirmDup.map(m => <span key={m.id} style={{ display: 'block', marginBottom: 4 }}>• <DupLink m={m} /></span>)}
+            </span>
+            Upload only if this is a different item.
+          </>
+        )}
+        confirmLabel="Upload anyway"
+        onCancel={() => setConfirmDup(null)}
+        onConfirm={() => { setConfirmDup(null); submit(null, true) }}
+      />
 
       {/* Discarding deletes the scan from the folder permanently, so it always
           goes through this screen. It names the file AND shows its size, pages

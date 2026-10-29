@@ -48,17 +48,6 @@ export function AuthProvider({ children }) {
     return u
   }
 
-  const register = async (data) => {
-    const res = await authApi.register(data)
-    const { token: t, user: u, permissions: p } = res.data
-    if (t) {
-      localStorage.setItem('tipiganan_token', t)
-      localStorage.setItem('tipiganan_user', JSON.stringify(u))
-      localStorage.setItem('tipiganan_permissions', JSON.stringify(p || []))
-      setToken(t); setUser(u); setPermissions(p || [])
-    }
-    return u
-  }
 
   const logout = async () => {
     try { await authApi.logout() } catch { /* ignore */ }
@@ -83,7 +72,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, permissions, loading, login, register, logout, isAdmin, hasPermission, updateUser }}>
+    <AuthContext.Provider value={{ user, token, permissions, loading, login, logout, isAdmin, hasPermission, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

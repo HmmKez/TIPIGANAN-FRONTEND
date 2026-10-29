@@ -38,7 +38,7 @@ export default function CollectionManagementPage() {
     setLoading(true); setError(null)
     thesesApi.list({
       category_id:    categoryId || undefined,
-      year_published: year || undefined,
+      year:           year || undefined,
       q:              query || undefined,
       status:         status || undefined,
       page,
@@ -366,7 +366,7 @@ export default function CollectionManagementPage() {
                     </small>
                   </td>
                   <td data-label="Department"><span className="badge badge-info">{t.category?.name || '—'}</span></td>
-                  <td data-label="Year">{t.year_published}</td>
+                  <td data-label="Year">{t.year || '—'}</td>
                   <td data-label="Pages">{t.pages || '—'}</td>
                   <td data-label="Status">
                     <span className={`badge ${t.status === 'active' ? 'badge-active' : t.status === 'restricted' ? 'badge-restricted' : 'badge-archived'}`}>

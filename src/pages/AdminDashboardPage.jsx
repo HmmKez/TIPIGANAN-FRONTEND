@@ -154,7 +154,7 @@ export default function AdminDashboardPage() {
                   <td><b>{t.title}</b></td>
                   <td>{t.authors}</td>
                   <td><span className="badge badge-info">{t.category?.name || '—'}</span></td>
-                  <td>{t.year_published}</td>
+                  <td>{t.year || '—'}</td>
                   <td>{t.uploader?.name || '—'}</td>
                   <td><span className="badge badge-active">{t.status}</span></td>
                 </tr>

@@ -3,6 +3,7 @@ import { userLabel, initialsOf as initials } from '../utils/userLabel'
 import { Link } from 'react-router-dom'
 import { usersApi, permissionsApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
+import PasswordInput from '../components/PasswordInput'
 import RowActions from '../components/RowActions'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
@@ -55,6 +56,7 @@ export default function UserManagementPage() {
 
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
+  const [search, setSearch] = useState('')   // q, once typing pauses
   const [role, setRole] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -120,15 +122,13 @@ export default function UserManagementPage() {
     const params = { page }
     if (role) params.role = role
     if (status) params.status = status
+    // Searched on the server, across every account (ID number, name, email) —
+    // filtering here only ever looked at the 15 users on the current page.
+    if (search) params.search = search
     usersApi.list(params)
       .then(r => {
         const d = r.data
         let list = d.data || []
-        if (q) {
-          const s = q.toLowerCase()
-          list = list.filter(u => (userLabel(u, '')).toLowerCase().includes(s)
-            || (u.email || '').toLowerCase().includes(s))
-        }
         if (tab === 'students')    list = list.filter(u => u.role === 'student' || u.role === 'teacher')
         if (tab === 'staff')       list = list.filter(u => u.role === 'staff')
         if (tab === 'admins')      list = list.filter(u => u.role === 'super_admin')
@@ -143,7 +143,12 @@ export default function UserManagementPage() {
       .catch(err => setError(err?.response?.data?.message || err.message))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [tab, q, role, status, page]) // eslint-disable-line
+  // Wait for a pause in typing before asking the server.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(q.trim()), 300)
+    return () => clearTimeout(t)
+  }, [q])
+  useEffect(load, [tab, search, role, status, page]) // eslint-disable-line
 
   // { user, activating: bool } pending confirmation — both activate and
   // deactivate go through the same confirmation step.
@@ -288,8 +293,8 @@ export default function UserManagementPage() {
         <div className="search-row">
           <div className="search-input-wrap">
             <i className="fas fa-search"></i>
-            <input type="text" placeholder="Search by name or email…"
-                   value={q} onChange={e => setQ(e.target.value)} />
+            <input type="text" placeholder="Search by ID number, name or email…" aria-label="Search users"
+                   value={q} onChange={e => { setQ(e.target.value); setPage(1) }} />
           </div>
         </div>
         <div className="filter-row">
@@ -359,6 +364,11 @@ export default function UserManagementPage() {
                     <span className={`badge ${u.status === 'active' ? 'badge-active' : 'badge-restricted'}`}>
                       {u.status}
                     </span>
+                    {u.deactivated_by_roster && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted, #718096)', marginTop: 3 }} title="Switched off when a school list without this ID number was imported. It switches back on when a list has it again.">
+                        Not on school list
+                      </div>
+                    )}
                   </td>
                   <td data-label="Created">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                   <td className="cell-actions">
@@ -564,7 +574,7 @@ export default function UserManagementPage() {
                 <p style={{ marginBottom: 16 }}>Set a new password for <b>{userLabel(resetFor)}</b>.</p>
                 <div className="form-group">
                   <label className="form-label">New Password <span className="req">*</span></label>
-                  <input type="password" className="form-control" required minLength="8"
+                  <PasswordInput required minLength="8" autoComplete="new-password"
                          pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                          title="At least 8 characters, with an uppercase letter, a lowercase letter, and a number."
                          value={resetForm.password}
@@ -573,7 +583,7 @@ export default function UserManagementPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Confirm Password <span className="req">*</span></label>
-                  <input type="password" className="form-control" required minLength="8"
+                  <PasswordInput required minLength="8" autoComplete="new-password"
                          value={resetForm.password_confirmation}
                          onChange={e => setResetForm({ ...resetForm, password_confirmation: e.target.value })} />
                 </div>

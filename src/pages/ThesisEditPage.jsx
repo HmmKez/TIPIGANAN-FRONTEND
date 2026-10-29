@@ -18,7 +18,8 @@ function formatBytes(bytes) {
   return kb < 1024 ? `${Math.round(kb)} KB` : `${(kb / 1024).toFixed(1)} MB`
 }
 
-const normText = (s) => (s || '').trim()
+// Accepts numbers too: the detected year comes back as one.
+const normText = (s) => (s == null ? '' : String(s)).trim()
 
 // How the current file's OCR-detected value compares to what's on the record.
 //   stale   — file has nothing, record still has a value (likely from a
@@ -40,7 +41,7 @@ function methodLabel(method) {
 }
 
 const emptyForm = {
-  title: '', authors: '', adviser: '', year_published: '',
+  title: '', authors: '', adviser: '', year: '',
   category_id: '', pages: '', abstract: '', keywords: '', status: 'active',
 }
 
@@ -158,7 +159,7 @@ export default function ThesisEditPage() {
           title: t.title || '',
           authors: t.authors || '',
           adviser: t.adviser || '',
-          year_published: t.year_published || '',
+          year: t.year || '',
           category_id: t.category_id || '',
           pages: t.pages || '',
           abstract: t.abstract || '',
@@ -194,6 +195,7 @@ export default function ThesisEditPage() {
             ...prev,
             abstract: prev.abstract ? prev.abstract : (t.abstract || ''),
             keywords: prev.keywords ? prev.keywords : (t.keywords || ''),
+            year: prev.year ? prev.year : (t.year || ''),
           }))
         }
       } catch {
@@ -260,7 +262,7 @@ export default function ThesisEditPage() {
       // Blank fields were just auto-filled from the new file — reflect that.
       const newAbstract = t.abstract || ''
       const newKeywords = t.keywords || ''
-      setForm(prev => ({ ...prev, abstract: newAbstract, keywords: newKeywords }))
+      setForm(prev => ({ ...prev, abstract: newAbstract, keywords: newKeywords, year: t.year || prev.year }))
       loadFileVersions()
 
       // Cleared as well as set: replacing a broken file with a good one has to
@@ -311,7 +313,7 @@ export default function ThesisEditPage() {
     try {
       await thesesApi.update(id, { [field]: value })
       setForm(prev => ({ ...prev, [field]: value }))
-      const name = field === 'abstract' ? 'Abstract' : 'Keywords'
+      const name = { abstract: 'Abstract', keywords: 'Keywords', year: 'Year' }[field] || field
       notify(`${name} ${value ? 'updated from the current file' : 'cleared'}.`, 'success')
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to apply the change.', 'error')
@@ -472,9 +474,10 @@ export default function ThesisEditPage() {
                 <small className="text-muted" style={{ fontSize: 11 }}>Optional — leave blank if the item has no adviser (e.g. special collections)</small>
               </div>
               <div className="form-group">
-                <label className="form-label">Year Published <span className="req">*</span></label>
-                <input type="number" className="form-control" required min="1900" max="2030"
-                       value={form.year_published} onChange={e => update('year_published', e.target.value)} />
+                <label className="form-label">Year</label>
+                <input type="number" className="form-control" min="1950" max={new Date().getFullYear() + 1}
+                       value={form.year} onChange={e => update('year', e.target.value)} placeholder="e.g. 2024" />
+                <small className="text-muted" style={{ fontSize: 11 }}>Optional — if blank, it is filled in from the PDF when the document is read</small>
               </div>
             </div>
             <div className="form-row">
@@ -617,7 +620,7 @@ export default function ThesisEditPage() {
                 Nothing changes until you apply it. <b>Use detected</b> overwrites the field with the text found in the current file;
                 {' '}<b>Clear</b> removes a value the current file no longer contains.
               </p>
-              {['abstract', 'keywords'].map(field => {
+              {['abstract', 'keywords', 'year'].map(field => {
                 const st = fieldState(detected[field], form[field])
                 return (
                   <div key={field} style={{ marginBottom: 12 }}>
@@ -639,7 +642,10 @@ export default function ThesisEditPage() {
                             <i className={`fas ${applyingField === field ? 'fa-spinner fa-spin' : 'fa-check'}`}></i> Use detected
                           </button>
                         )}
-                        {st === 'stale' && (
+                        {/* Never for the year: one staff typed in is often not
+                            printed in the file at all, so "not in the file" is
+                            no reason to throw it away. */}
+                        {st === 'stale' && field !== 'year' && (
                           <button type="button" className="btn btn-sm btn-danger" disabled={applyingField === field}
                                   onClick={() => applyDetected(field, '')}>
                             <i className={`fas ${applyingField === field ? 'fa-spinner fa-spin' : 'fa-eraser'}`}></i> Clear stale value
