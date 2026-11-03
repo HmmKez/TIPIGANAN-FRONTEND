@@ -35,6 +35,13 @@ api.interceptors.response.use(
       if (!window.location.pathname.startsWith('/login') &&
           !window.location.pathname.startsWith('/register') &&
           window.location.pathname !== '/') {
+        // The login page shows why, once. The server explains the cases it knows
+        // (deactivated, no longer on the school's list); anything else is an
+        // ordinary expired session.
+        sessionStorage.setItem('tipiganan_signed_out_reason',
+          error.response?.data?.reason && error.response?.data?.message
+            ? error.response.data.message
+            : 'You have been signed out. Please sign in again.')
         window.location.href = '/login'
       }
     }

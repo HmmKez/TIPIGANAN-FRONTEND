@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getRetryAfterSeconds, useCountdown } from '../utils/rateLimit'
@@ -8,7 +8,9 @@ import PasswordInput from '../components/PasswordInput'
 export default function LoginPage() {
   const [idNumber, setIdNumber] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  // Why they were sent here, if they were signed out (see api/axios.js).
+  const [error, setError] = useState(() => sessionStorage.getItem('tipiganan_signed_out_reason') || '')
+  useEffect(() => { sessionStorage.removeItem('tipiganan_signed_out_reason') }, [])
   const [submitting, setSubmitting] = useState(false)
   const [retrySeconds, setRetrySeconds] = useState(0)
   const retryCountdown = useCountdown(retrySeconds)
@@ -107,9 +109,6 @@ export default function LoginPage() {
                              value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
 
-            <div className="checkbox-row">
-              <label><input type="checkbox" /> Remember me</label>
-            </div>
 
             {/* There is no self-service password reset, by deliberate design —
                 resets are staff-assisted only. The old "Forgot password?" link

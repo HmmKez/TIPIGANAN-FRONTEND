@@ -51,6 +51,7 @@ export default function UserManagementPage() {
 
   const [users, setUsers] = useState([])
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
+  const [counts, setCounts] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -120,6 +121,7 @@ export default function UserManagementPage() {
   const load = () => {
     setLoading(true); setError(null)
     const params = { page }
+    if (tab !== 'all') params.tab = tab
     if (role) params.role = role
     if (status) params.status = status
     // Searched on the server, across every account (ID number, name, email) —
@@ -128,12 +130,9 @@ export default function UserManagementPage() {
     usersApi.list(params)
       .then(r => {
         const d = r.data
-        let list = d.data || []
-        if (tab === 'students')    list = list.filter(u => u.role === 'student' || u.role === 'teacher')
-        if (tab === 'staff')       list = list.filter(u => u.role === 'staff')
-        if (tab === 'admins')      list = list.filter(u => u.role === 'super_admin')
-        if (tab === 'deactivated') list = list.filter(u => u.status === 'deactivated')
+        const list = d.data || []
         setUsers(list)
+        setCounts(d.counts || null)
         setMeta({
           current_page: d.current_page || 1,
           last_page:    d.last_page || 1,
@@ -220,6 +219,9 @@ export default function UserManagementPage() {
     } finally { setSaving(false) }
   }
 
+  // Nothing typed stays behind for the next account's dialog.
+  const closeReset = () => { setResetFor(null); setResetForm({ password: '', password_confirmation: '' }) }
+
   const submitReset = async (e) => {
     e.preventDefault()
     if (resetForm.password !== resetForm.password_confirmation) {
@@ -228,7 +230,7 @@ export default function UserManagementPage() {
     setSaving(true)
     try {
       await usersApi.resetPassword(resetFor.id, resetForm)
-      setResetFor(null); setResetForm({ password: '', password_confirmation: '' })
+      closeReset()
       notify('Password reset successfully.', 'success')
     } catch (err) {
       const errs = err?.response?.data?.errors
@@ -247,8 +249,8 @@ export default function UserManagementPage() {
           <div className="page-title">User Management</div>
           <div className="page-subtitle">View accounts, change roles, activate/deactivate, reset passwords, and manage permissions.</div>
         </div>
-        {/* No "Add User" button. Accounts are self-registered with a school ID
-            number; promotion is a per-account action, so it lives on the row
+        {/* No "Add User" button. Accounts are activated at the library from the
+            school's list; promotion is a per-account action, so it lives on the row
             for the person being promoted rather than as a page-level button
             that would have to ask which account it meant. */}
       </div>
@@ -257,23 +259,23 @@ export default function UserManagementPage() {
       <div className="stat-grid">
         <div className="stat-card">
           <div className="stat-card-icon blue"><i className="fas fa-users"></i></div>
-          <div className="stat-value">{meta.total.toLocaleString()}</div>
-          <div className="stat-label">Total Users (page)</div>
+          <div className="stat-value">{(counts?.total ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Total Users</div>
         </div>
         <div className="stat-card">
           <div className="stat-card-icon green"><i className="fas fa-user-check"></i></div>
-          <div className="stat-value">{users.filter(u => u.status === 'active').length}</div>
-          <div className="stat-label">Active (shown)</div>
+          <div className="stat-value">{(counts?.active ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Active</div>
         </div>
         <div className="stat-card">
           <div className="stat-card-icon red"><i className="fas fa-user-slash"></i></div>
-          <div className="stat-value">{users.filter(u => u.status === 'deactivated').length}</div>
-          <div className="stat-label">Deactivated (shown)</div>
+          <div className="stat-value">{(counts?.deactivated ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Deactivated</div>
         </div>
         <div className="stat-card">
           <div className="stat-card-icon orange"><i className="fas fa-user-tag"></i></div>
-          <div className="stat-value">{users.filter(u => u.role === 'staff' || u.role === 'super_admin').length}</div>
-          <div className="stat-label">Staff &amp; Admins (shown)</div>
+          <div className="stat-value">{(counts?.staff_admins ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Staff &amp; Admins</div>
         </div>
       </div>
 
@@ -385,7 +387,9 @@ export default function UserManagementPage() {
                         icon: 'fa-user-shield', label: 'Manage Permissions',
                         onClick: () => setPermsFor(u),
                       },
-                      canResetPasswords && {
+                      // Staff only see this for students/teachers, as with
+                      // Delete below; the server refuses the rest.
+                      canResetPasswords && (isSuper || ['student', 'teacher'].includes(u.role)) && {
                         icon: 'fa-key', label: 'Reset Password',
                         onClick: () => setResetFor(u),
                       },
@@ -453,9 +457,9 @@ export default function UserManagementPage() {
                   <div className="notice-banner" style={{ marginBottom: 16 }}>
                     <i className="fas fa-info-circle"></i>
                     <span>
-                      Accounts aren't created here — everyone signs up themselves with their
-                      school ID number. Promote an existing account instead, so each person
-                      keeps the one account they already use.
+                      Accounts aren't created here — everyone is activated at the library
+                      from the school's list. Promote an existing account instead, so each
+                      person keeps the one account they already use.
                     </span>
                   </div>
                 )}
@@ -563,11 +567,11 @@ export default function UserManagementPage() {
 
       {/* Reset Password Modal */}
       {resetFor && (
-        <div className="modal-backdrop" onClick={() => setResetFor(null)}>
+        <div className="modal-backdrop" onClick={closeReset}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3><i className="fas fa-key" style={{ color: 'var(--warning)', marginRight: 8 }}></i>Reset Password</h3>
-              <button className="btn-icon" onClick={() => setResetFor(null)}><i className="fas fa-times"></i></button>
+              <button className="btn-icon" onClick={closeReset}><i className="fas fa-times"></i></button>
             </div>
             <form onSubmit={submitReset}>
               <div className="modal-body">
@@ -589,7 +593,7 @@ export default function UserManagementPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setResetFor(null)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={closeReset}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-check'}`}></i>
                   {saving ? ' Saving…' : ' Reset Password'}

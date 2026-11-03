@@ -26,12 +26,77 @@ function RoleCounts({ byRole }) {
   )
 }
 
-function PeopleList({ people }) {
+// A long list stays folded so the page stays short. A few names are simply shown.
+const SHOW_WITHOUT_ASKING = 10
+
+function Names({ shown, total, children }) {
+  const [open, setOpen] = useState(false)
+  if (total <= SHOW_WITHOUT_ASKING) return children
+
   return (
-    <ul className="roster-people">
-      {people.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {p.role.replace('_', ' ')}</span></li>)}
-    </ul>
+    <>
+      <div style={{ marginTop: 6 }}>
+        <button type="button" className="roster-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}
+                style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', font: 'inherit', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+          {open ? 'Hide the names' : (total > shown ? `Show the first ${shown}` : `Show all ${shown}`)}
+        </button>
+      </div>
+      {open && children}
+    </>
   )
+}
+
+function PeopleList({ people, total }) {
+  return (
+    <Names shown={people.length} total={total}>
+      <ul className="roster-people">
+        {people.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {p.role.replace('_', ' ')}</span></li>)}
+      </ul>
+      <MoreNote shown={people.length} total={total} />
+    </Names>
+  )
+}
+
+// One button that saves each list as its own CSV, to check in Excel before
+// importing. One at a time with a short pause, as browsers can drop files
+// started in the same instant.
+function DownloadLists({ lists }) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState([])
+
+  const download = async () => {
+    setBusy(true); setFailed([])
+    const missed = []
+    for (const list of lists) {
+      try {
+        const res = await list.fetch()
+        const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8' }))
+        const a = document.createElement('a')
+        a.href = url; a.download = list.filename; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 10000)
+        await new Promise(resolve => setTimeout(resolve, 400))
+      } catch {
+        missed.push(list.filename)
+      }
+    }
+    setFailed(missed)
+    setBusy(false)
+  }
+
+  if (lists.length === 0) return null
+  return (
+    <div style={{ marginTop: 14 }}>
+      <button type="button" className="btn btn-secondary btn-sm" style={{ width: 'auto' }} disabled={busy} onClick={download}>
+        <i className={`fas ${busy ? 'fa-spinner fa-spin' : 'fa-download'}`}></i> {lists.length === 1 ? 'Download full list' : `Download full lists (${lists.length} files)`}
+      </button>
+      {failed.length > 0 && <div style={{ marginTop: 6, fontSize: 12 }}>Could not download: {failed.join(', ')}. Please try again.</div>}
+    </div>
+  )
+}
+
+// The server sends at most 50 names; the count in the heading is the true one.
+function MoreNote({ shown, total }) {
+  return total > shown ? <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>Showing the first {shown} of {total.toLocaleString()}.</div> : null
 }
 
 // Everyone on the current list: ID number and whether the account has been
@@ -231,11 +296,12 @@ export default function SchoolRecordsPage() {
                 {last && <> · imported {new Date(last.imported_at).toLocaleString()} by {last.imported_by}{last.file_name ? ` from ${last.file_name}` : ''}</>}
               </p>
               <RoleCounts byRole={state.summary.by_role} />
-              {state.accounts_not_on_list?.length > 0 && (
+              {state.accounts_not_on_list_total > 0 && (
                 <div className="notice-banner warning" style={{ marginTop: 14, alignItems: 'flex-start' }}>
                   <i className="fas fa-user-lock"></i>
-                  <span><b>{state.accounts_not_on_list.length} account{state.accounts_not_on_list.length === 1 ? ' is' : 's are'} not on the list</b> and cannot sign in:
-                    <PeopleList people={state.accounts_not_on_list} />
+                  <span><b>{state.accounts_not_on_list_total.toLocaleString()} account{state.accounts_not_on_list_total === 1 ? ' is' : 's are'} not on the list</b> and cannot sign in:
+                    <PeopleList people={state.accounts_not_on_list} total={state.accounts_not_on_list_total} />
+                    <DownloadLists lists={[{ fetch: () => schoolRosterApi.downloadNotOnList(), filename: 'school-list-not-on-list.csv' }]} />
                   </span>
                 </div>
               )}
@@ -290,25 +356,59 @@ export default function SchoolRecordsPage() {
                   </span>
                 </div>
               )}
-              {preview.would_lose_access?.length > 0 && (
+              {preview.your_new_name && (
+                <div className="notice-banner" style={{ marginTop: 14 }}>
+                  <i className="fas fa-info-circle"></i>
+                  <span>Your name on this list is <b>{preview.your_new_name}</b>. Your account's name will update to match, and you stay signed in.</span>
+                </div>
+              )}
+              {preview.would_lose_access_total > 0 && (
                 <div className="notice-banner warning" style={{ marginTop: 14, alignItems: 'flex-start' }}>
                   <i className="fas fa-user-lock"></i>
-                  <span><b>{preview.would_lose_access.length} existing account{preview.would_lose_access.length === 1 ? '' : 's'}</b> {preview.would_lose_access.length === 1 ? 'is' : 'are'} not on this list and will be <b>switched off</b>. They are signed out and cannot sign in; if a later list has them again, they are switched back on with their own password:
-                    <PeopleList people={preview.would_lose_access} />
+                  <span><b>{preview.would_lose_access_total.toLocaleString()} existing account{preview.would_lose_access_total === 1 ? '' : 's'}</b> {preview.would_lose_access_total === 1 ? 'is' : 'are'} not on this list and will be <b>switched off</b>. They are signed out and cannot sign in; if a later list has them again, they are switched back on with their own password:
+                    <PeopleList people={preview.would_lose_access} total={preview.would_lose_access_total} />
                   </span>
                 </div>
               )}
-              {preview.would_restore?.length > 0 && (
+              {preview.name_changes_total > 0 && (
+                <div className="notice-banner warning" style={{ marginTop: 14, alignItems: 'flex-start' }}>
+                  <i className="fas fa-id-card"></i>
+                  <span><b>{preview.name_changes_total.toLocaleString()} account{preview.name_changes_total === 1 ? ' has' : 's have'} a different name on this list</b> and must be <b>activated again</b> at the library. They are signed out and cannot sign in until then. Staff and Super Admin accounts here can only be activated by a Super Admin:
+                    <Names shown={preview.name_changes.length} total={preview.name_changes_total}>
+                      <ul className="roster-people">
+                        {preview.name_changes.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} → <b>{p.list_name}</b></li>)}
+                      </ul>
+                      <MoreNote shown={preview.name_changes.length} total={preview.name_changes_total} />
+                    </Names>
+                  </span>
+                </div>
+              )}
+              {preview.role_changes_total > 0 && (
+                <div className="notice-banner" style={{ marginTop: 14, alignItems: 'flex-start' }}>
+                  <i className="fas fa-user-tag"></i>
+                  <span><b>{preview.role_changes_total.toLocaleString()} account{preview.role_changes_total === 1 ? '' : 's'}</b> will change between student and teacher to match this list:
+                    <Names shown={preview.role_changes.length} total={preview.role_changes_total}>
+                      <ul className="roster-people">
+                        {preview.role_changes.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {p.from} → {p.to}</span></li>)}
+                      </ul>
+                      <MoreNote shown={preview.role_changes.length} total={preview.role_changes_total} />
+                    </Names>
+                  </span>
+                </div>
+              )}
+              {preview.would_restore_total > 0 && (
                 <div className="notice-banner success" style={{ marginTop: 14, alignItems: 'flex-start' }}>
                   <i className="fas fa-user-check"></i>
-                  <span><b>{preview.would_restore.length} account{preview.would_restore.length === 1 ? '' : 's'}</b> switched off by an earlier list {preview.would_restore.length === 1 ? 'is' : 'are'} on this one and will be <b>switched back on</b>:
-                    <PeopleList people={preview.would_restore} />
+                  <span><b>{preview.would_restore_total.toLocaleString()} account{preview.would_restore_total === 1 ? '' : 's'}</b> switched off by an earlier list {preview.would_restore_total === 1 ? 'is' : 'are'} on this one and will be <b>switched back on</b>:
+                    <PeopleList people={preview.would_restore} total={preview.would_restore_total} />
                   </span>
                 </div>
               )}
               {preview.rejected_total > 0 && (
                 <div style={{ marginTop: 14 }}>
-                  <b>{preview.rejected_total} row{preview.rejected_total === 1 ? '' : 's'} will be skipped:</b>
+                  <b>{preview.rejected_total.toLocaleString()} row{preview.rejected_total === 1 ? '' : 's'} will be skipped:</b>
+                  <Names shown={preview.rejected.length} total={preview.rejected_total}>
+                  <MoreNote shown={preview.rejected.length} total={preview.rejected_total} />
                   <div className="table-wrap" style={{ marginTop: 6 }}>
                     <table className="data-table">
                       <thead><tr><th>Line</th><th>ID number</th><th>Why</th></tr></thead>
@@ -317,10 +417,22 @@ export default function SchoolRecordsPage() {
                       </tbody>
                     </table>
                   </div>
+                  </Names>
                 </div>
               )}
 
-              <button className="btn btn-primary" style={{ width: 'auto', marginTop: 18 }} disabled={blocked || busy}
+              <DownloadLists lists={[
+                ['switched_off', preview.would_lose_access_total],
+                ['name_changes', preview.name_changes_total],
+                ['role_changes', preview.role_changes_total],
+                ['switched_back_on', preview.would_restore_total],
+                ['skipped', preview.rejected_total],
+              ].filter(([, total]) => total > 0).map(([section]) => ({
+                fetch: () => schoolRosterApi.downloadPreview(file, section),
+                filename: `school-list-${section.replaceAll('_', '-')}.csv`,
+              }))} />
+
+              <button className="btn btn-primary" style={{ width: 'auto', marginTop: 18, display: 'block' }} disabled={blocked || busy}
                       onClick={() => setConfirmOpen(true)}>
                 <i className={`fas ${busy ? 'fa-spinner fa-spin' : 'fa-file-import'}`}></i> Import this list
               </button>
@@ -334,7 +446,7 @@ export default function SchoolRecordsPage() {
         icon="fa-file-import"
         confirmStyle="warning"
         title="Replace the school list?"
-        message={preview && `The current list will be replaced by these ${preview.valid} people. Only ID numbers on it can be activated or sign in.${preview.would_lose_access?.length ? ` ${preview.would_lose_access.length} account${preview.would_lose_access.length === 1 ? '' : 's'} not on it will be switched off.` : ''}`}
+        message={preview && `The current list will be replaced by these ${preview.valid} people. Only ID numbers on it can be activated or sign in.${preview.would_lose_access_total ? ` ${preview.would_lose_access_total.toLocaleString()} account${preview.would_lose_access_total === 1 ? '' : 's'} not on it will be switched off.` : ''}${preview.name_changes_total ? ` ${preview.name_changes_total.toLocaleString()} account${preview.name_changes_total === 1 ? '' : 's'} with a changed name must be activated again.` : ''}${preview.role_changes_total ? ` ${preview.role_changes_total.toLocaleString()} role${preview.role_changes_total === 1 ? '' : 's'} will update.` : ''}`}
         confirmLabel="Import"
         onCancel={() => setConfirmOpen(false)}
         onConfirm={runImport}

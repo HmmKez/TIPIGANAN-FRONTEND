@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { activationApi } from '../api/admin'
 import PasswordInput from './PasswordInput'
+import ConfirmModal from './ConfirmModal'
 
 /**
  * Activating an account at the library desk (School Records page).
@@ -24,6 +25,8 @@ export default function ActivateAccountPanel() {
   const [idNumber, setIdNumber] = useState('')
   const [person, setPerson] = useState(null)
   const [confirmed, setConfirmed] = useState(false)
+  const [samePerson, setSamePerson] = useState(null)   // when the earlier account's name differs
+  const [confirmingDifferent, setConfirmingDifferent] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
@@ -34,7 +37,7 @@ export default function ActivateAccountPanel() {
   const idRef = useRef(null)
 
   const reset = () => {
-    setStep('id'); setIdNumber(''); setPerson(null); setConfirmed(false)
+    setStep('id'); setIdNumber(''); setPerson(null); setConfirmed(false); setSamePerson(null)
     setEmail(''); setPassword(''); setPassword2('')
     setFieldErrors({}); setError(null); setDone(null)
     setTimeout(() => idRef.current?.focus(), 0)
@@ -45,7 +48,7 @@ export default function ActivateAccountPanel() {
     setBusy(true); setError(null)
     try {
       const r = await activationApi.lookup(idNumber)
-      setPerson(r.data); setConfirmed(false); setStep('confirm')
+      setPerson(r.data); setConfirmed(false); setSamePerson(null); setStep('confirm')
     } catch (err) {
       setError(firstError(err, 'Could not look up that ID number.'))
     } finally { setBusy(false) }
@@ -60,6 +63,7 @@ export default function ActivateAccountPanel() {
       const r = await activationApi.activate({
         id_number: person.id_number, name_confirmed: true,
         email, password, password_confirmation: password2,
+        ...(person.previous_name ? { same_person: samePerson } : {}),
       })
       // Nothing the person typed stays on screen.
       setEmail(''); setPassword(''); setPassword2('')
@@ -71,6 +75,8 @@ export default function ActivateAccountPanel() {
       setPassword(''); setPassword2('')
     } finally { setBusy(false) }
   }
+
+  const finalRole = person && (samePerson === false ? person.role_if_new : person.role)
 
   return (
     <div className="panel activate-panel" style={{ marginBottom: 16 }}>
@@ -113,12 +119,28 @@ export default function ActivateAccountPanel() {
               <div className="activate-person-label">Name on the school's list for <code>{person.id_number}</code></div>
               <div className="activate-person-name">{person.full_name}</div>
               <div className="text-muted">
-                Will be activated as a <b>{ROLE_NAME[person.role] || person.role}</b>
-                {person.list_role !== person.role && !person.earlier_account && (
+                Will be activated as a <b>{ROLE_NAME[finalRole] || finalRole}</b>
+                {person.list_role !== finalRole && !['staff', 'super_admin'].includes(finalRole) && (
                   <> — the list says {ROLE_NAME[person.list_role]}; give that role in User Management afterwards</>
                 )}
               </div>
-              {person.earlier_account && (
+              {person.previous_name && (
+                <div className="notice-banner warning" style={{ marginTop: 12, alignItems: 'flex-start' }}>
+                  <i className="fas fa-exclamation-triangle"></i>
+                  <span>
+                    <b>This ID number's earlier account has a different name: {person.previous_name}.</b> Is this the same person?
+                    <label className="activate-check" style={{ marginTop: 8 }}>
+                      <input type="radio" name="same-person" checked={samePerson === true} onChange={() => setSamePerson(true)} />
+                      Same person, the name was corrected. They keep their bookmarks and history.
+                    </label>
+                    <label className="activate-check" style={{ marginTop: 6 }}>
+                      <input type="radio" name="same-person" checked={samePerson === false} onChange={() => setSamePerson(false)} />
+                      Different person. They start with a new account, and the old one stays closed.
+                    </label>
+                  </span>
+                </div>
+              )}
+              {person.earlier_account && !person.previous_name && (
                 <div className="notice-banner" style={{ marginTop: 12 }}>
                   <i className="fas fa-info-circle"></i>
                   <span>This ID number has an earlier account. Activating it keeps their bookmarks and history and sets a new email and password.</span>
@@ -129,10 +151,24 @@ export default function ActivateAccountPanel() {
               <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />
               I've checked their school ID card, and this name matches the person in front of me.
             </label>
-            <button type="button" className="btn btn-primary" style={{ width: 'auto', marginTop: 14 }} disabled={!confirmed}
-                    onClick={() => { setStep('details'); setError(null) }}>
+            <button type="button" className="btn btn-primary" style={{ width: 'auto', marginTop: 14 }} disabled={!confirmed || (person.previous_name && samePerson === null)}
+                    onClick={() => {
+                      // Cannot be undone on screen, so it gets a second look.
+                      if (samePerson === false) { setConfirmingDifferent(true); return }
+                      setStep('details'); setError(null)
+                    }}>
               <i className="fas fa-arrow-right"></i> Continue
             </button>
+            <ConfirmModal
+              open={confirmingDifferent}
+              icon="fa-user-plus"
+              confirmStyle="warning"
+              title={`Start a new account for ${person.full_name}?`}
+              message={`${person.previous_name}'s account will be closed for good, and its bookmarks and history stay with it. They cannot be moved to the new account from this screen. Choose this only if the ID number now belongs to someone else.`}
+              confirmLabel="Yes, different person"
+              onCancel={() => setConfirmingDifferent(false)}
+              onConfirm={() => { setConfirmingDifferent(false); setStep('details'); setError(null) }}
+            />
           </div>
         )}
 

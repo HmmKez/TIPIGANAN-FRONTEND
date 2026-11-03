@@ -49,7 +49,7 @@ export default function AdminDashboardPage() {
         <div className="stat-card">
           <div className="stat-card-icon green"><i className="fas fa-users"></i></div>
           <div className="stat-value">{loading ? '…' : (data?.total_users ?? 0).toLocaleString()}</div>
-          <div className="stat-label">Registered Users</div>
+          <div className="stat-label">Activated Accounts</div>
         </div>
         <div className="stat-card">
           <div className="stat-card-icon purple"><i className="fas fa-sitemap"></i></div>

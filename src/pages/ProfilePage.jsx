@@ -66,7 +66,7 @@ export default function ProfilePage() {
     e.preventDefault()
     setSavingProfile(true); setProfileMsg(null)
     try {
-      const res = await usersApi.updateProfile({ name, email })
+      const res = await usersApi.updateProfile({ email })
       setData(prev => ({ ...prev, user: res.data.user }))
       updateUser(res.data.user)
       setProfileMsg({ type: 'success', text: 'Profile updated successfully.' })
@@ -196,8 +196,9 @@ export default function ProfilePage() {
                   </div>
                 )}
                 <div className="form-group">
-                  <label className="form-label">Full Name <span className="req">*</span></label>
-                  <input type="text" className="form-control" value={name} onChange={e => setName(e.target.value)} required />
+                  <label className="form-label">Full Name</label>
+                  <input type="text" className="form-control" value={name} readOnly disabled />
+                  <small className="text-muted" style={{ fontSize: 11 }}>From the school's list. If it is wrong, please visit the library.</small>
                   {/* Mockup splits First/Last Name, but users.name is a single
                       column in the schema — one field is what the backend
                       can actually store. */}
