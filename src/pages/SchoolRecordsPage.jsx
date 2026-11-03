@@ -29,6 +29,8 @@ function RoleCounts({ byRole }) {
 // A long list stays folded so the page stays short. A few names are simply shown.
 const SHOW_WITHOUT_ASKING = 10
 
+const LINK_BUTTON = { background: 'none', border: 'none', padding: 0, color: 'inherit', font: 'inherit', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }
+
 function Names({ shown, total, children }) {
   const [open, setOpen] = useState(false)
   if (total <= SHOW_WITHOUT_ASKING) return children
@@ -37,12 +39,55 @@ function Names({ shown, total, children }) {
     <>
       <div style={{ marginTop: 6 }}>
         <button type="button" className="roster-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}
-                style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', font: 'inherit', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                style={LINK_BUTTON}>
           {open ? 'Hide the names' : (total > shown ? `Show the first ${shown}` : `Show all ${shown}`)}
         </button>
       </div>
       {open && children}
     </>
+  )
+}
+
+// Who has an account but is not on the current list. Hiding it only shrinks it
+// to one line in this browser, and only for this list: it remembers which import
+// it was hidden for, so every new import shows it again, in case someone was left
+// off by mistake. Browser storage can be unavailable; it then simply stays shown.
+const HIDDEN_FOR_KEY = 'tipiganan_not_on_list_hidden_for'
+
+function NotOnListWarning({ people, total, importedAt }) {
+  const [hiddenFor, setHiddenFor] = useState(() => {
+    try { return localStorage.getItem(HIDDEN_FOR_KEY) } catch { return null }
+  })
+  const hidden = Boolean(importedAt) && hiddenFor === importedAt
+  const accounts = `${total.toLocaleString()} account${total === 1 ? ' is' : 's are'} not on the list`
+
+  const remember = (value) => {
+    setHiddenFor(value)
+    try {
+      if (value) localStorage.setItem(HIDDEN_FOR_KEY, value)
+      else localStorage.removeItem(HIDDEN_FOR_KEY)
+    } catch { /* Stays as chosen until the page is reloaded. */ }
+  }
+
+  if (hidden) {
+    return (
+      <div className="text-muted" style={{ marginTop: 14, fontSize: 13 }}>
+        <i className="fas fa-user-lock" style={{ marginRight: 6 }}></i>
+        {accounts} · <button type="button" style={LINK_BUTTON} onClick={() => remember(null)}>Show</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="notice-banner warning" style={{ marginTop: 14, alignItems: 'flex-start' }}>
+      <i className="fas fa-user-lock"></i>
+      <span style={{ flex: 1 }}>
+        <b>{accounts}</b> and cannot sign in:
+        <PeopleList people={people} total={total} />
+        <DownloadLists lists={[{ fetch: () => schoolRosterApi.downloadNotOnList(), filename: 'school-list-not-on-list.csv' }]} />
+      </span>
+      <button type="button" style={{ ...LINK_BUTTON, marginLeft: 12 }} onClick={() => remember(importedAt)}>Hide</button>
+    </div>
   )
 }
 
@@ -297,13 +342,7 @@ export default function SchoolRecordsPage() {
               </p>
               <RoleCounts byRole={state.summary.by_role} />
               {state.accounts_not_on_list_total > 0 && (
-                <div className="notice-banner warning" style={{ marginTop: 14, alignItems: 'flex-start' }}>
-                  <i className="fas fa-user-lock"></i>
-                  <span><b>{state.accounts_not_on_list_total.toLocaleString()} account{state.accounts_not_on_list_total === 1 ? ' is' : 's are'} not on the list</b> and cannot sign in:
-                    <PeopleList people={state.accounts_not_on_list} total={state.accounts_not_on_list_total} />
-                    <DownloadLists lists={[{ fetch: () => schoolRosterApi.downloadNotOnList(), filename: 'school-list-not-on-list.csv' }]} />
-                  </span>
-                </div>
+                <NotOnListWarning people={state.accounts_not_on_list} total={state.accounts_not_on_list_total} importedAt={state.summary.imported_at} />
               )}
             </>
           )}
