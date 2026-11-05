@@ -1,18 +1,18 @@
 # TIPIGANAN — Frontend
 
 MDC Online Repository of Special and Rare Collections  
-React + Vite + Tailwind CSS Frontend
+React + Vite Frontend
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22.13+ or 24
 - npm
 
 ## Setup Instructions
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/tipiganan-frontend.git
+git clone https://github.com/HmmKez/TIPIGANAN-FRONTEND.git
 cd tipiganan-frontend
 ```
 
@@ -37,6 +37,10 @@ By default the app calls `http://127.0.0.1:8000/api`. To point it somewhere
 else, set `VITE_API_BASE_URL` (see `.env.production.example`). Note that Vite
 bakes this value into the bundle at **build** time — changing it means
 rebuilding, not just restarting.
+
+## Deploying
+
+For deploying on a server, including the school's, follow `deploy/README.md` in the backend repository. It builds and serves this frontend too.
 
 ## Deploying to Vercel
 
