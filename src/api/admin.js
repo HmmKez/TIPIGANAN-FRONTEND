@@ -126,6 +126,7 @@ export const schoolRosterApi = {
     const data = new FormData(); data.append('file', file); data.append('section', section)
     return api.post('/school-roster/preview/download', data, { headers: { 'Content-Type': 'multipart/form-data' }, responseType: 'blob' })
   },
+  downloadTemplate: () => api.get('/school-roster/template', { responseType: 'blob' }),
   downloadNotOnList: () => api.get('/school-roster/not-on-list/download', { responseType: 'blob' }),
   import: (file, confirmSmaller = false) => {
     const data = new FormData(); data.append('file', file)

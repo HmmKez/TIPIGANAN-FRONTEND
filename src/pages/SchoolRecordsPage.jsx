@@ -105,7 +105,7 @@ function PeopleList({ people, total }) {
 // One button that saves each list as its own CSV, to check in Excel before
 // importing. One at a time with a short pause, as browsers can drop files
 // started in the same instant.
-function DownloadLists({ lists }) {
+function DownloadLists({ lists, label }) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState([])
 
@@ -132,7 +132,7 @@ function DownloadLists({ lists }) {
   return (
     <div style={{ marginTop: 14 }}>
       <button type="button" className="btn btn-secondary btn-sm" style={{ width: 'auto' }} disabled={busy} onClick={download}>
-        <i className={`fas ${busy ? 'fa-spinner fa-spin' : 'fa-download'}`}></i> {lists.length === 1 ? 'Download full list' : `Download full lists (${lists.length} files)`}
+        <i className={`fas ${busy ? 'fa-spinner fa-spin' : 'fa-download'}`}></i> {label || (lists.length === 1 ? 'Download full list' : `Download full lists (${lists.length} files)`)}
       </button>
       {failed.length > 0 && <div style={{ marginTop: 6, fontSize: 12 }}>Could not download: {failed.join(', ')}. Please try again.</div>}
     </div>
@@ -361,6 +361,12 @@ export default function SchoolRecordsPage() {
             Every account must be on it, staff and Super Admins included. Importing <b>replaces</b> the current list.
             If the file was opened in Excel, check that ID numbers kept their leading zeros (00042, not 42).
           </p>
+          <div style={{ marginBottom: 14 }}>
+            <DownloadLists label="Download CSV template" lists={[{ fetch: () => schoolRosterApi.downloadTemplate(), filename: 'school-list-template.csv' }]} />
+            <small className="text-muted" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+              To send to the school's IT: a CSV with just the required columns.
+            </small>
+          </div>
 
           {notice && <div className="notice-banner success" style={{ marginBottom: 14 }} role="status"><i className="fas fa-check-circle"></i><span>{notice}</span></div>}
           {error && <div className="notice-banner warning" style={{ marginBottom: 14 }}><i className="fas fa-exclamation-triangle"></i><span>{error}</span></div>}
