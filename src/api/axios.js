@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://tipbk.materdeicollege.com/api'
 
 // The backend's origin (baseURL without the trailing /api) — used to build
 // URLs for files served outside the API, like /storage/... cover images.
