@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { thesesApi, categoriesApi, scanInboxApi } from '../api/admin'
+import { thesesApi, categoriesApi } from '../api/admin'
+import { useScanFolder, FILED, DISCARDED } from '../utils/scanFolder'
 import CategoryPicker from '../components/CategoryPicker'
 import { citationsApi } from '../api'
 import ConfirmModal from '../components/ConfirmModal'
@@ -62,19 +63,182 @@ function defaultMla({ authors, year, title }) {
   return `${authors}. "${title}." Unpublished thesis, ${SCHOOL}, ${year ? `${year}.` : 'n.d.'}`
 }
 
+/**
+ * The scan folder on this computer: choosing it, reconnecting it, and the
+ * scans waiting in it. Chrome and Edge only (see utils/scanFolder.js).
+ */
+function ScanFolderPanel({ folder, scanFile, onChoose, onView, onDiscard, onMoveToFiled }) {
+  const { state, folderName, scans, total, error } = folder
+  const bar = (text, action) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12, fontSize: 13 }}>
+      <i className="fas fa-folder-open" style={{ color: 'var(--primary-blue)' }}></i>
+      <span style={{ flex: 1, minWidth: 0 }}>{text}</span>
+      {action}
+    </div>
+  )
+
+  if (state === 'unsupported') {
+    return (
+      <div className="notice-banner" style={{ marginBottom: 14 }}>
+        <i className="fas fa-circle-info"></i>
+        <span>A scan folder needs <b>Chrome</b> or <b>Edge</b>. In this browser, choose the scanned PDF below.</span>
+      </div>
+    )
+  }
+  if (state === 'loading') return bar(<span className="text-muted">Opening the scan folder…</span>)
+  // Text above, button below: side by side, the sentence was squeezed into a
+  // narrow column next to the button in this side panel.
+  const prompt = (text, button) => (
+    <div style={{ marginBottom: 16 }}>
+      <p style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, margin: '0 0 10px', lineHeight: 1.5 }}>
+        <i className="fas fa-folder-open" style={{ color: 'var(--primary-blue)', marginTop: 3 }}></i>
+        <span>{text}</span>
+      </p>
+      {button}
+      <Or />
+    </div>
+  )
+  if (state === 'none') {
+    return prompt(
+      <>Choose the folder on this computer where the scanner saves its PDFs. New scans then appear here.</>,
+      <button type="button" className="btn btn-primary btn-sm" onClick={folder.choose}>
+        <i className="fas fa-folder-plus"></i> Choose scan folder
+      </button>,
+    )
+  }
+  if (state === 'needs-permission') {
+    return prompt(
+      <>Scan folder: <b>{folderName}</b>. The browser asks to allow access again.</>,
+      <button type="button" className="btn btn-primary btn-sm" onClick={folder.reconnect}>
+        <i className="fas fa-plug"></i> Reconnect
+      </button>,
+    )
+  }
+  if (state === 'error') {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div className="notice-banner warning" style={{ marginBottom: 10 }}>
+          <i className="fas fa-triangle-exclamation"></i><span>{error}</span>
+        </div>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={folder.choose}>
+          <i className="fas fa-folder-open"></i> Choose scan folder
+        </button>
+        <Or />
+      </div>
+    )
+  }
+
+  // ready
+  return (
+    <div style={{ marginBottom: 18 }}>
+      {bar(<>Scan folder: <b>{folderName}</b></>,
+        <button type="button" onClick={folder.choose} style={LINKISH}>Change folder</button>)}
+
+      {scans.length === 0 ? (
+        <p className="text-muted" style={{ fontSize: 12.5, margin: '0 0 4px' }}>
+          No scans waiting. New ones appear here by themselves; the folder is checked every 30 seconds.
+        </p>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <i className="fas fa-print" style={{ color: 'var(--primary-blue)' }}></i>
+            <b style={{ fontSize: 13 }}>{total} scanned {total === 1 ? 'file' : 'files'} waiting</b>
+            {total > scans.length && <span className="text-muted" style={{ fontSize: 11 }}>(showing the newest {scans.length})</span>}
+          </div>
+
+          {/* A fixed-height box that scrolls, so a backlog of scans can never
+              push the browse box below off the screen. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: scans.length > 4 ? 4 : 0 }}>
+            {scans.map(s => {
+              const chosen = scanFile?.name === s.name
+              const usable = s.settled && !s.known
+              return (
+                <div key={s.name} data-scan-name={s.name}
+                     style={{
+                       flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                       border: `1px solid ${chosen ? 'var(--primary-blue)' : 'var(--border-light)'}`,
+                       background: chosen ? 'var(--info-bg)' : 'var(--bg-white)', borderRadius: 8,
+                       opacity: usable ? 1 : 0.85,
+                     }}>
+                  <button type="button" disabled={!usable}
+                          title={!s.settled ? 'Still being saved by the scanner' : s.known ? 'Already in the repository' : (chosen ? 'Click to unselect' : `Use ${s.name}`)}
+                          onClick={() => onChoose(s)}
+                          style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none',
+                                   padding: 0, cursor: usable ? 'pointer' : 'default', textAlign: 'left', color: 'inherit', font: 'inherit' }}>
+                    <i className={`fas ${chosen ? 'fa-circle-check' : !s.settled ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}
+                       style={{ color: chosen ? 'var(--primary-blue)' : 'var(--danger)', fontSize: 16, flex: 'none' }}></i>
+                    <span style={{ minWidth: 0 }}>
+                      <span title={s.name}
+                            style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden',
+                                     wordBreak: 'break-all', fontWeight: 500, fontSize: 13, lineHeight: 1.35 }}>
+                        {s.name}
+                      </span>
+                      <span className="text-muted" style={{ fontSize: 11 }}>
+                        {!s.settled ? 'Still saving…' : <>
+                          {fileSizeLabel(s.size)}
+                          {s.pages ? ` · ${s.pages} page${s.pages === 1 ? '' : 's'}` : ''}
+                          {' · '}{scannedAtLabel(s.scanned_at)}
+                        </>}
+                      </span>
+                      {s.known && (
+                        <span style={{ display: 'block', fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>
+                          <i className="fas fa-circle-check"></i> Already in the repository as <b>{s.known.title}</b>
+                        </span>
+                      )}
+                    </span>
+                  </button>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 'none', alignItems: 'stretch' }}>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!s.settled} onClick={() => onView(s)}
+                            style={{ width: 'auto', padding: '3px 10px', fontSize: 11.5, whiteSpace: 'nowrap' }}>
+                      <i className="fas fa-eye"></i> View
+                    </button>
+                    {s.known ? (
+                      <button type="button" onClick={() => onMoveToFiled(s)}
+                              style={{ ...LINKISH, fontSize: 11, color: 'var(--primary-blue)', padding: '2px 4px', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-box-archive"></i> Move to Filed
+                      </button>
+                    ) : (
+                      <button type="button" disabled={!s.settled} onClick={() => onDiscard(s)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 11,
+                                       color: 'var(--danger)', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-trash"></i> Discard
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+      <Or />
+    </div>
+  )
+}
+
+const LINKISH = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary-blue)', fontFamily: 'inherit', fontSize: 12.5, textDecoration: 'underline' }
+
+function Or() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 4px' }}>
+      <span style={{ flex: 1, height: 1, background: 'var(--border-light)' }}></span>
+      <span className="text-muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>or</span>
+      <span style={{ flex: 1, height: 1, background: 'var(--border-light)' }}></span>
+    </div>
+  )
+}
+
 export default function ThesisUploadPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
   const [pdfFile, setPdfFile] = useState(null)
 
-  // A PDF the scanner already left waiting, chosen instead of browsing for a
-  // file. Mutually exclusive with pdfFile — the backend requires exactly one.
+  // The scan folder on this computer (utils/scanFolder.js), and the scan
+  // chosen from it instead of browsing for a file. Mutually exclusive with
+  // pdfFile: a chosen scan is uploaded exactly like a PDF picked by hand.
+  const folder = useScanFolder()
   const [scanFile, setScanFile] = useState(null)
-  const [scans, setScans] = useState([])
-  // Everything waiting in the folder. Can exceed scans.length, which is capped
-  // to the newest 100 - so the heading counts this, not the rows on screen.
-  const [scanTotal, setScanTotal] = useState(0)
-  const [scanState, setScanState] = useState('loading') // loading | ready | unavailable | off
   // The scan awaiting confirmation before it is discarded. The whole entry,
   // not just its name, so the confirmation can show its size, page count and
   // time - the details that tell one scan from another.
@@ -83,7 +247,6 @@ export default function ThesisUploadPage() {
   // live as staff type, and asked about once more if they submit anyway.
   const [dupMatches, setDupMatches] = useState([])
   const [confirmDup, setConfirmDup] = useState(null)
-  const [scanError, setScanError] = useState('')
   const [coverFile, setCoverFile] = useState(null)
   const [categories, setCategories] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -101,70 +264,51 @@ export default function ThesisUploadPage() {
     categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
   }, [])
 
-  const loadScans = () => {
-    setScanState('loading')
-    scanInboxApi.list()
-      .then(r => {
-        const d = r.data || {}
-        if (!d.enabled)        { setScanState('off'); return }
-        // "Folder unreachable" is kept distinct from "nothing scanned yet".
-        // They look the same to a user but mean different things: the first is
-        // usually the shared drive not being mounted, and calling it "no scans"
-        // sends staff to check the scanner instead of the storage.
-        if (d.available === false) { setScanState('unavailable'); setScanError(d.message || ''); return }
-        setScans(d.files || [])
-        setScanTotal(d.total ?? (d.files || []).length)
-        setScanState('ready')
-      })
-      .catch(() => setScanState('unavailable'))
-  }
-
-  useEffect(loadScans, [])
+  // A chosen scan that has since been filed, discarded or moved away is
+  // unchosen, so the form never uploads a file that is no longer listed.
+  useEffect(() => {
+    if (scanFile && !folder.scans.some(x => x.name === scanFile.name)) setScanFile(null)
+  }, [folder.scans]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Open a waiting scan in a new tab so staff can see which thesis it is.
    * Scanner file names ("ScanSnap_2026-09-22_09-14-03.pdf") say nothing about
-   * the contents, so with several waiting this is the only way to tell them
-   * apart before filing one.
-   *
-   * Same approach as the edit page's file preview: the endpoint needs the
-   * login token, so a plain link can't open it. The blank tab is opened
-   * synchronously inside the click so the popup blocker doesn't eat it after
-   * the download.
+   * the contents. The file is read straight from this computer's folder.
    */
-  const viewScan = async (name) => {
+  const viewScan = async (scan) => {
     const w = window.open('', '_blank')
     try {
-      const res = await scanInboxApi.preview(name)
-      const url = URL.createObjectURL(res.data)
+      const url = URL.createObjectURL(await folder.fileFor(scan.name))
       if (w) w.location = url
       else window.open(url, '_blank')
       setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch {
       if (w) w.close()
-      setError({ message: `"${name}" could not be opened. It may have been filed or discarded already — try Refresh.` })
+      setError({ message: `"${scan.name}" could not be opened. It may have been moved already — try Refresh.` })
     }
   }
 
   /**
-   * Runs only after the confirmation screen. Discarding deletes the file from
-   * the scan folder for good - there is no bin to restore it from - so it is
-   * never done straight from the row's button.
-   *
-   * The dialog is closed before the request goes out, so a second click
-   * during a slow response cannot send a second delete.
+   * Runs only after the confirmation screen. The scan moves into the scan
+   * folder's Discarded subfolder; nothing is deleted, so it can be moved back.
+   * The dialog closes first, so a second click cannot send a second move.
    */
   const discardScanNow = async () => {
     const scan = confirmDiscard
     setConfirmDiscard(null)
     if (!scan) return
     try {
-      await scanInboxApi.discard(scan.name)
+      await folder.move(scan.name, DISCARDED)
       if (scanFile?.name === scan.name) setScanFile(null)
-      loadScans()
     } catch {
-      setError({ message: 'That scan could not be discarded. It may already be gone.' })
+      setError({ message: 'That scan could not be moved to the Discarded folder. It may already be gone — try Refresh.' })
     }
+  }
+
+  /** A scan already in the repository: tidy it away without filing it again. */
+  const moveToFiled = async (scan) => {
+    try { await folder.move(scan.name, FILED) }
+    catch { setError({ message: `"${scan.name}" could not be moved to the Filed folder.` }) }
   }
 
   useEffect(() => { if (!apaEdited) setApaText(defaultApa(form)) }, [form.authors, form.year, form.title, apaEdited])
@@ -194,11 +338,10 @@ export default function ThesisUploadPage() {
     try {
       const data = new FormData()
       Object.entries(form).forEach(([k, v]) => { if (v !== '' && v != null) data.append(k, v) })
-      // Exactly one of these. A scan is named rather than uploaded — the file
-      // is already on the server's storage, so sending it up from the browser
-      // would mean downloading and re-uploading the staff member's own scan.
-      if (scanFile) data.append('scan_file', scanFile.name)
-      else          data.append('pdf_file', pdfFile)
+      // A chosen scan is read fresh from this computer's folder and uploaded
+      // exactly like a PDF chosen by hand: same size limit, duplicate check,
+      // reading of the text, and audit entry.
+      data.append('pdf_file', scanFile ? await folder.fileFor(scanFile.name) : pdfFile)
       if (coverFile) data.append('cover_image', coverFile)
       if (confirmDuplicate) data.append('confirm_duplicate', '1')
       const res = await thesesApi.create(data)
@@ -217,6 +360,13 @@ export default function ThesisUploadPage() {
           if (apaEdited && apaRow) await citationsApi.update(newId, apaRow.id, { citation_text: apaText })
           if (mlaEdited && mlaRow) await citationsApi.update(newId, mlaRow.id, { citation_text: mlaText })
         } catch { /* thesis is already created; citation text can still be fixed on the Edit page */ }
+      }
+
+      // Only now that it is saved does the scan leave the folder, into Filed.
+      // If that fails, the item is still saved; the scan stays and is marked
+      // "Already in the repository" next time, with a Move to Filed button.
+      if (scanFile) {
+        try { await folder.move(scanFile.name, FILED) } catch { /* see above */ }
       }
 
       setSuccess(true)
@@ -392,122 +542,18 @@ export default function ThesisUploadPage() {
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">PDF File</div>
-                {scanState === 'ready' && scans.length > 0 && (
+                {folder.state === 'ready' && (
                   <button type="button" className="btn btn-secondary btn-sm"
-                          onClick={loadScans} title="Check the scan folder again">
+                          onClick={folder.refresh} title="Check the scan folder again">
                     <i className="fas fa-rotate"></i> Refresh
                   </button>
                 )}
               </div>
               <div className="panel-body">
 
-                {/* Waiting scans come first: if the scanner has just produced
-                    the file, picking it here is the whole point of the feature
-                    and browsing for it would be the slower path. */}
-                {scanState === 'ready' && scans.length > 0 && (
-                  <div style={{ marginBottom: 18 }}>
-                    <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:10, flexWrap:'wrap' }}>
-                      <i className="fas fa-print" style={{ color:'var(--primary-blue)' }}></i>
-                      <b style={{ fontSize:13 }}>
-                        {scanTotal} scanned {scanTotal === 1 ? 'file' : 'files'} waiting
-                      </b>
-                      {/* Only when the backend capped the list: say so, rather
-                          than letting the rows on screen pass for all of them. */}
-                      {scanTotal > scans.length && (
-                        <span className="text-muted" style={{ fontSize:11 }}>
-                          (showing the newest {scans.length})
-                        </span>
-                      )}
-                    </div>
-
-                    {/* A fixed-height box that scrolls, so a backlog of scans can
-                        never push the browse box below off the screen. Sized to
-                        show about four and a half rows: a row cut off at the
-                        bottom is the cue that there are more to scroll to. */}
-                    <div style={{
-                           display:'flex', flexDirection:'column', gap:8,
-                           maxHeight: 300, overflowY:'auto',
-                           paddingRight: scans.length > 4 ? 4 : 0,
-                         }}>
-                      {scans.map(s => {
-                        const chosen = scanFile?.name === s.name
-                        return (
-                          <div key={s.name}
-                               data-scan-name={s.name}
-                               style={{
-                                 flex:'none',
-                                 display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
-                                 border:`1px solid ${chosen ? 'var(--primary-blue)' : 'var(--border-light)'}`,
-                                 background: chosen ? 'var(--info-bg)' : 'var(--bg-white)',
-                                 borderRadius:8,
-                               }}>
-                            <button type="button"
-                                    title={chosen ? 'Click to unselect' : `Use ${s.name}`}
-                                    onClick={() => { setScanFile(chosen ? null : s); setPdfFile(null) }}
-                                    style={{
-                                      flex:1, minWidth:0, display:'flex', alignItems:'center', gap:10,
-                                      background:'none', border:'none', padding:0, cursor:'pointer',
-                                      textAlign:'left', color:'inherit', font:'inherit',
-                                    }}>
-                              <i className={`fas ${chosen ? 'fa-circle-check' : 'fa-file-pdf'}`}
-                                 style={{ color: chosen ? 'var(--primary-blue)' : 'var(--danger)', fontSize:16, flex:'none' }}></i>
-                              <span style={{ minWidth:0 }}>
-                                {/* Up to two lines, broken anywhere, instead of
-                                    one truncated line. On a phone the View and
-                                    Discard buttons leave about a dozen characters
-                                    of room, which cut every name to
-                                    "ScanSnap_2026…" - useless for telling scans
-                                    apart. Names longer than two lines still clip,
-                                    and the full name is in the tooltip. */}
-                                <span title={s.name}
-                                      style={{ display:'-webkit-box', WebkitBoxOrient:'vertical', WebkitLineClamp:2,
-                                               overflow:'hidden', wordBreak:'break-all', fontWeight:500, fontSize:13,
-                                               lineHeight:1.35 }}>
-                                  {s.name}
-                                </span>
-                                <span className="text-muted" style={{ fontSize:11 }}>
-                                  {fileSizeLabel(s.size)}
-                                  {s.pages ? ` · ${s.pages} page${s.pages === 1 ? '' : 's'}` : ''}
-                                  {' · '}{scannedAtLabel(s.scanned_at)}
-                                </span>
-                              </span>
-                            </button>
-
-                            {/* Labelled, not icon-only: the row itself already
-                                means "use this one", so the two extra actions
-                                have to say what they do at a glance. */}
-                            <div style={{ display:'flex', flexDirection:'column', gap:4, flex:'none', alignItems:'stretch' }}>
-                              <button type="button" className="btn btn-secondary btn-sm"
-                                      onClick={() => viewScan(s.name)}
-                                      style={{ width:'auto', padding:'3px 10px', fontSize:11.5, whiteSpace:'nowrap' }}>
-                                <i className="fas fa-eye"></i> View
-                              </button>
-                              <button type="button"
-                                      onClick={() => setConfirmDiscard(s)}
-                                      style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 4px',
-                                               fontSize:11, color:'var(--danger)', whiteSpace:'nowrap' }}>
-                                <i className="fas fa-trash"></i> Discard
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div style={{ display:'flex', alignItems:'center', gap:10, margin:'16px 0 4px' }}>
-                      <span style={{ flex:1, height:1, background:'var(--border-light)' }}></span>
-                      <span className="text-muted" style={{ fontSize:11, textTransform:'uppercase', letterSpacing:'0.06em' }}>or</span>
-                      <span style={{ flex:1, height:1, background:'var(--border-light)' }}></span>
-                    </div>
-                  </div>
-                )}
-
-                {scanState === 'unavailable' && (
-                  <div className="notice-banner warning" style={{ marginBottom:14 }}>
-                    <i className="fas fa-triangle-exclamation"></i>
-                    <span>{scanError || 'The scan folder cannot be reached, so scanned files are not listed. You can still attach a PDF below.'}</span>
-                  </div>
-                )}
+                <ScanFolderPanel folder={folder} scanFile={scanFile}
+                                 onChoose={s => { setScanFile(scanFile?.name === s.name ? null : s); setPdfFile(null) }}
+                                 onView={viewScan} onDiscard={setConfirmDiscard} onMoveToFiled={moveToFiled} />
 
                 <label className="file-drop" style={{ display: 'block' }}>
                   <input type="file" accept="application/pdf" style={{ display: 'none' }}
@@ -529,7 +575,7 @@ export default function ThesisUploadPage() {
 
                 {scanFile && (
                   <p className="text-muted" style={{ fontSize:11, marginTop:10 }}>
-                    Using the scanned file <b>{scanFile.name}</b>. It leaves the scan folder once this item is saved.
+                    Using the scanned file <b>{scanFile.name}</b>. Once this item is saved, it moves into the scan folder's <b>{FILED}</b> folder.
                   </p>
                 )}
               </div>
@@ -587,8 +633,8 @@ export default function ThesisUploadPage() {
         onConfirm={() => { setConfirmDup(null); submit(null, true) }}
       />
 
-      {/* Discarding deletes the scan from the folder permanently, so it always
-          goes through this screen. It names the file AND shows its size, pages
+      {/* Discarding moves the scan into the Discarded folder, and always goes
+          through this screen. It names the file AND shows its size, pages
           and time, and offers View, because scanner file names alone rarely
           say which thesis is inside - the wrong one is easy to pick. */}
       <ConfirmModal
@@ -606,9 +652,9 @@ export default function ThesisUploadPage() {
               {confirmDiscard.pages ? ` · ${confirmDiscard.pages} page${confirmDiscard.pages === 1 ? '' : 's'}` : ''}
               {' · '}scanned {scannedAtLabel(confirmDiscard.scanned_at)}
             </span>
-            It will be deleted from the scan folder and <b>cannot be recovered</b>.
+            It will be moved into the scan folder's <b>{DISCARDED}</b> folder. Nothing is deleted, so it can be moved back.
             Not sure it's the right one?{' '}
-            <button type="button" onClick={() => viewScan(confirmDiscard.name)}
+            <button type="button" onClick={() => viewScan(confirmDiscard)}
                     style={{ background:'none', border:'none', padding:0, cursor:'pointer',
                              color:'var(--primary-blue)', font:'inherit', textDecoration:'underline' }}>
               View it first
