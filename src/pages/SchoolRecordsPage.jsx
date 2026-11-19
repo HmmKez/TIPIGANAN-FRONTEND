@@ -4,6 +4,7 @@ import { schoolRosterApi } from '../api/admin'
 import { useAuth } from '../contexts/AuthContext'
 import ConfirmModal from '../components/ConfirmModal'
 import ActivateAccountPanel from '../components/ActivateAccountPanel'
+import { roleName } from '../utils/roles'
 
 /**
  * The school's list of everyone allowed to use TIPIGANAN.
@@ -14,12 +15,14 @@ import ActivateAccountPanel from '../components/ActivateAccountPanel'
  *    (SCHOOL_DIRECTORY_DRIVER=csv), only ID numbers on it can be activated or
  *    sign in.
  */
-const ROLE_LABEL = { student: 'Students', teacher: 'Teachers', staff: 'Staff', super_admin: 'Super Admins' }
+// Lists imported since 2026-11-19 only give student, teacher or other; staff and
+// super_admin can still appear in a list stored before then.
+const ROLE_LABEL = { student: 'Students', teacher: 'Teachers', other: 'Others', staff: 'Staff', super_admin: 'Super Admins' }
 
 function RoleCounts({ byRole }) {
   return (
     <div className="roster-counts">
-      {Object.entries(ROLE_LABEL).map(([k, label]) => (
+      {Object.entries(ROLE_LABEL).filter(([k]) => !['staff', 'super_admin'].includes(k) || byRole?.[k] > 0).map(([k, label]) => (
         <div key={k} className="roster-count"><b>{(byRole?.[k] ?? 0).toLocaleString()}</b><span>{label}</span></div>
       ))}
     </div>
@@ -95,7 +98,7 @@ function PeopleList({ people, total }) {
   return (
     <Names shown={people.length} total={total}>
       <ul className="roster-people">
-        {people.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {p.role.replace('_', ' ')}</span></li>)}
+        {people.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {roleName(p.role)}</span></li>)}
       </ul>
       <MoreNote shown={people.length} total={total} />
     </Names>
@@ -357,7 +360,9 @@ export default function SchoolRecordsPage() {
         <div className="panel-body">
           <p className="text-muted" style={{ marginTop: 0 }}>
             A CSV file with a header row and these columns: <code>id_number</code>, <code>first_name</code>,
-            {' '}<code>last_name</code> (optional) and <code>role</code> — student, teacher, staff or super_admin.
+            {' '}<code>last_name</code> (optional) and <code>role</code>. A role of <b>student</b> or <b>teacher</b> is kept as it is;
+            {' '}<b>any other role</b> (for example Registrar or Guard) signs in as <b>Other</b>, with the same access as students and teachers.
+            {' '}A blank role is skipped. The list never gives staff powers: a Super Admin gives those in User Management.
             Every account must be on it, staff and Super Admins included. Importing <b>replaces</b> the current list.
             If the file was opened in Excel, check that ID numbers kept their leading zeros (00042, not 42).
           </p>
@@ -431,12 +436,34 @@ export default function SchoolRecordsPage() {
               {preview.role_changes_total > 0 && (
                 <div className="notice-banner" style={{ marginTop: 14, alignItems: 'flex-start' }}>
                   <i className="fas fa-user-tag"></i>
-                  <span><b>{preview.role_changes_total.toLocaleString()} account{preview.role_changes_total === 1 ? '' : 's'}</b> will change between student and teacher to match this list:
+                  <span><b>{preview.role_changes_total.toLocaleString()} account{preview.role_changes_total === 1 ? '' : 's'}</b> will change between student, teacher and other to match this list:
                     <Names shown={preview.role_changes.length} total={preview.role_changes_total}>
                       <ul className="roster-people">
-                        {preview.role_changes.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {p.from} → {p.to}</span></li>)}
+                        {preview.role_changes.map(p => <li key={p.id_number}><code>{p.id_number}</code> {p.name} <span className="text-muted">· {roleName(p.from)} → {roleName(p.to)}</span></li>)}
                       </ul>
                       <MoreNote shown={preview.role_changes.length} total={preview.role_changes_total} />
+                    </Names>
+                  </span>
+                </div>
+              )}
+              {preview.as_other_total > 0 && (
+                <div className={'notice-banner' + (preview.possible_typos_total > 0 ? ' warning' : '')} style={{ marginTop: 14, alignItems: 'flex-start' }}>
+                  <i className="fas fa-user-tag"></i>
+                  <span>
+                    <b>{preview.as_other_total.toLocaleString()} {preview.as_other_total === 1 ? 'person' : 'people'}</b> will be added as <b>Other</b>, because their role is neither student nor teacher. They can sign in and read like students and teachers.
+                    {preview.possible_typos_total > 0 && (
+                      <> <b>Check {preview.possible_typos_total === 1 ? 'the first one' : 'the first ' + preview.possible_typos_total}</b>: the role looks like a misspelt student or teacher. If so, fix the file and preview again.</>
+                    )}
+                    <Names shown={preview.as_other.length} total={preview.as_other_total}>
+                      <ul className="roster-people">
+                        {preview.as_other.map(p => (
+                          <li key={p.id_number}>
+                            <code>{p.id_number}</code> {p.name} <span className="text-muted">· “{p.role_label}”</span>
+                            {p.possible_typo && <> · <b>possible typo of “{p.possible_typo}”</b></>}
+                          </li>
+                        ))}
+                      </ul>
+                      <MoreNote shown={preview.as_other.length} total={preview.as_other_total} />
                     </Names>
                   </span>
                 </div>
@@ -470,6 +497,7 @@ export default function SchoolRecordsPage() {
                 ['switched_off', preview.would_lose_access_total],
                 ['name_changes', preview.name_changes_total],
                 ['role_changes', preview.role_changes_total],
+                ['as_other', preview.as_other_total],
                 ['switched_back_on', preview.would_restore_total],
                 ['skipped', preview.rejected_total],
               ].filter(([, total]) => total > 0).map(([section]) => ({

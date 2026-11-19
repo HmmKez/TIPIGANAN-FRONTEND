@@ -669,7 +669,7 @@ export default function LandingPage() {
           ) : (
             <>
               <h2>Ready to Explore MDC's Academic Heritage?</h2>
-              <p>Current MDC students and teachers can read the full collection. To get an account, visit the library with your school ID card and the staff will activate it for you.</p>
+              <p>Current MDC students, teachers and personnel can read the full collection. To get an account, visit the library with your school ID card and the staff will activate it for you.</p>
               <div className="lp-cta-buttons">
                 <Link to="/login" className="lp-hero-cta" style={{color:'#345FCF'}}><i className="fas fa-sign-in-alt"></i> Sign In</Link>
                 <Link to="/browse" className="lp-hero-secondary"><i className="fas fa-book-open"></i> Browse Collections</Link>

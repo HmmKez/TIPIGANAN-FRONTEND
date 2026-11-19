@@ -97,6 +97,7 @@ export default function Layout({ children }) {
   const roleLabel = user?.role === 'super_admin' ? 'Super Administrator'
                    : user?.role === 'staff'       ? 'Staff'
                    : user?.role === 'teacher'      ? 'Teacher'
+                   : user?.role === 'other'        ? 'Other'
                    : 'Student'
 
   const menu = getMenu(isAdmin, isGuest, user?.role === 'super_admin' || hasPermission('activate_accounts'))

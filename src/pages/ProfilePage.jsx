@@ -15,6 +15,7 @@ function roleLabel(role) {
   if (role === 'super_admin') return 'Super Administrator'
   if (role === 'staff') return 'Staff'
   if (role === 'teacher') return 'Teacher'
+  if (role === 'other') return 'Other'
   return 'Student'
 }
 

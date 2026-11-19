@@ -21,6 +21,7 @@ const REPORT_TYPES = [
 const ROLE_OPTIONS = [
   { value: 'student', label: 'Students' },
   { value: 'teacher', label: 'Teachers' },
+  { value: 'other', label: 'Others' },
 ]
 
 export default function ReportsPage() {
@@ -241,7 +242,7 @@ export default function ReportsPage() {
           filters in use instead. */}
       <p className="print-only" style={{ fontSize: 13, marginBottom: 12 }}>
         <b>Filters:</b>{' '}
-        {roles.length ? ROLE_OPTIONS.filter(o => roles.includes(o.value)).map(o => o.label).join(' and ') : 'All roles'}
+        {roles.length ? ROLE_OPTIONS.filter(o => roles.includes(o.value)).map(o => o.label).join(', ') : 'All roles'}
         {' · '}
         {dateFrom || dateTo ? `${dateFrom || 'the beginning'} to ${dateTo || 'today'}` : 'All dates'}
       </p>

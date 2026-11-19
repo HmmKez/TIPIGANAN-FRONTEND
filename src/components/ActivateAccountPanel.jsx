@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { activationApi } from '../api/admin'
 import PasswordInput from './PasswordInput'
 import ConfirmModal from './ConfirmModal'
+import { roleName, ROLE_NAMES } from '../utils/roles'
 
 /**
  * Activating an account at the library desk (School Records page).
@@ -13,7 +14,7 @@ import ConfirmModal from './ConfirmModal'
  *      password. Staff never need to see or know the password.
  *   4. Done - everything typed is cleared, ready for the next person.
  */
-const ROLE_NAME = { student: 'Student', teacher: 'Teacher', staff: 'Staff', super_admin: 'Super Admin' }
+// Role names come from utils/roles; "other" shows the school's wording.
 
 const firstError = (e, fallback) => {
   const errs = e?.response?.data?.errors
@@ -99,7 +100,7 @@ export default function ActivateAccountPanel() {
         {step === 'id' && (
           <form onSubmit={lookUp} className="activate-id">
             <p className="text-muted" style={{ marginTop: 0 }}>
-              For a student or teacher at the desk with their school ID card. Only ID numbers on the school's list can be activated.
+              For a student, teacher or anyone else on the school's list, at the desk with their school ID card. Only ID numbers on the school's list can be activated.
             </p>
             <div className="form-group" style={{ maxWidth: 260 }}>
               <label className="form-label" htmlFor="activate-id">ID Number <span className="req">*</span></label>
@@ -119,9 +120,10 @@ export default function ActivateAccountPanel() {
               <div className="activate-person-label">Name on the school's list for <code>{person.id_number}</code></div>
               <div className="activate-person-name">{person.full_name}</div>
               <div className="text-muted">
-                Will be activated as a <b>{ROLE_NAME[finalRole] || finalRole}</b>
+                Will be activated as {finalRole === 'other' ? 'an' : 'a'}{' '}
+                <b>{roleName(finalRole, finalRole === 'other' ? person.list_role_label : null)}</b>
                 {person.list_role !== finalRole && !['staff', 'super_admin'].includes(finalRole) && (
-                  <> — the list says {ROLE_NAME[person.list_role]}; give that role in User Management afterwards</>
+                  <> — the list says {ROLE_NAMES[person.list_role] || person.list_role}; give that role in User Management afterwards</>
                 )}
               </div>
               {person.previous_name && (

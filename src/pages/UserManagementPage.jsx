@@ -8,6 +8,7 @@ import RowActions from '../components/RowActions'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { avatarUrl } from '../utils/avatar'
+import { roleName, isReaderRole } from '../utils/roles'
 
 
 // Staff get every other privilege (uploading, editing, categorizing, viewing
@@ -28,7 +29,7 @@ const PERMISSION_LABELS = {
 function canDelete(actor, target, hasPermission) {
   if (!actor || actor.id === target.id) return false
   if (actor.role === 'super_admin') return true
-  return hasPermission('delete_accounts') && (target.role === 'student' || target.role === 'teacher')
+  return hasPermission('delete_accounts') && isReaderRole(target.role)
 }
 
 function roleBadgeClass(role) {
@@ -37,10 +38,7 @@ function roleBadgeClass(role) {
   return 'badge-student'
 }
 function roleLabel(role) {
-  if (role === 'super_admin') return 'Super Admin'
-  if (role === 'staff') return 'Staff'
-  if (role === 'teacher') return 'Teacher'
-  return 'Student'
+  return roleName(role)
 }
 
 export default function UserManagementPage() {
@@ -282,7 +280,7 @@ export default function UserManagementPage() {
       {/* Tabs */}
       <div className="tabs">
         {[
-          ['all', 'All Users'], ['students', 'Students & Teachers'],
+          ['all', 'All Users'], ['students', 'Students, Teachers & Others'],
           ['staff', 'Staff'], ['admins', 'Admins'], ['deactivated', 'Deactivated'],
         ].map(([id, label]) => (
           <div key={id} className={`tab ${tab === id ? 'active' : ''}`}
@@ -304,6 +302,7 @@ export default function UserManagementPage() {
             <option value="">All Roles</option>
             <option value="student">Student</option>
             <option value="teacher">Teacher</option>
+            <option value="other">Other</option>
             <option value="staff">Staff</option>
             <option value="super_admin">Super Admin</option>
           </select>
@@ -389,7 +388,7 @@ export default function UserManagementPage() {
                       },
                       // Staff only see this for students/teachers, as with
                       // Delete below; the server refuses the rest.
-                      canResetPasswords && (isSuper || ['student', 'teacher'].includes(u.role)) && {
+                      canResetPasswords && (isSuper || isReaderRole(u.role)) && {
                         icon: 'fa-key', label: 'Reset Password',
                         onClick: () => setResetFor(u),
                       },
@@ -489,6 +488,7 @@ export default function UserManagementPage() {
                             onChange={e => setNewRole(e.target.value)}>
                       <option value="student">Student</option>
                       <option value="teacher">Teacher</option>
+                      <option value="other">Other</option>
                       <option value="staff">Staff</option>
                       <option value="super_admin">Super Admin</option>
                     </select>
