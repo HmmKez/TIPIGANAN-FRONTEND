@@ -376,20 +376,25 @@ export default function LandingPage() {
   // --- Featured collections (Super Admin) ---------------------------------
   // The landing payload only returns the collections that are CURRENTLY shown,
   // so picking from it alone could never re-add a hidden one. The editor pulls
-  // the full collection list separately and treats the payload as the "checked"
-  // set.
+  // the full collection list separately. What is ticked comes from the saved
+  // setting (featured_ids), NOT from the cards on the page: collections with
+  // nothing readable are left off the page, and ticking from the cards would
+  // drop them from the selection the moment someone pressed Save.
   const openPicker = async () => {
     setPickerError('')
-    setSelectedIds(collections.map(c => c.id))
     setPickerOpen(true)
-    if (!allCollections.length) {
+    let all = allCollections
+    if (!all.length) {
       try {
         const res = await collectionsApi.list()
-        setAllCollections(res.data?.data || res.data || [])
+        all = res.data?.data || res.data || []
+        setAllCollections(all)
       } catch {
         setPickerError('Could not load the collections.')
       }
     }
+    const saved = data?.featured_ids
+    setSelectedIds(Array.isArray(saved) ? saved : all.map(c => c.id))
   }
 
   const toggleId = (id) => setSelectedIds(prev =>
@@ -580,7 +585,7 @@ export default function LandingPage() {
 
             {isSuperAdmin && (
               <div className="lp-coll-admin">
-                <button type="button" onClick={() => (pickerOpen ? setPickerOpen(false) : openPicker())}>
+                <button type="button" disabled={!data} onClick={() => (pickerOpen ? setPickerOpen(false) : openPicker())}>
                   <i className="fas fa-sliders"></i> Choose which collections to show
                 </button>
               </div>

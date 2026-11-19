@@ -380,6 +380,10 @@ const S = {
     borderWidth: 2, borderStyle: 'solid', borderColor: 'transparent',
     transition: 'border-color 0.15s',
     position: 'relative',
+    // The rail is a fixed-height flex column. overflow:hidden above lets a
+    // flex item shrink below its content, so a long PDF (dozens of pages)
+    // crushed every thumbnail to a ~12px sliver. Never shrink; scroll instead.
+    flexShrink: 0,
   },
   thumbActive: { borderColor: 'var(--primary-blue-light)', boxShadow: '0 0 0 2px rgba(90,121,229,0.35)' },
   thumbSkeleton: { width: 110, height: 155, background: 'rgba(255,255,255,0.06)', borderRadius: 3 },
