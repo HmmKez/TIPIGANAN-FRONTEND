@@ -176,9 +176,14 @@ export function useScanFolder() {
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
   const busy = useRef(false)
+  // A refresh asked for while one is running (a scan just filed or discarded
+  // during the 30-second check) runs again straight after, so the list never
+  // stays out of date until the next check.
+  const again = useRef(false)
 
   const refresh = useCallback(async (dir = folder) => {
-    if (!dir || busy.current) return
+    if (!dir) return
+    if (busy.current) { again.current = true; return }
     busy.current = true
     try {
       const { scans: list, total: n } = await listScans(dir)
@@ -189,8 +194,11 @@ export function useScanFolder() {
       setError(e?.name === 'NotFoundError'
         ? 'The scan folder can no longer be found. It may have been moved or renamed. Choose it again.'
         : 'The scan folder could not be read. Choose it again.')
-    } finally { busy.current = false }
-  }, [folder])
+    } finally {
+      busy.current = false
+      if (again.current) { again.current = false; refresh(dir) }
+    }
+  }, [folder]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = useCallback(async (dir, ask) => {
     const opts = { mode: 'readwrite' }

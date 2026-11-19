@@ -248,7 +248,7 @@ export default function ThesisUploadPage() {
   const [dupMatches, setDupMatches] = useState([])
   const [confirmDup, setConfirmDup] = useState(null)
   const [coverFile, setCoverFile] = useState(null)
-  const [categories, setCategories] = useState([])
+  const [categories, setCategories] = useState(null) // null while loading (see CategoryPicker)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
@@ -261,7 +261,7 @@ export default function ThesisUploadPage() {
   const [mlaEdited, setMlaEdited] = useState(false)
 
   useEffect(() => {
-    categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
+    categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => setCategories([]))
   }, [])
 
   // A chosen scan that has since been filed, discarded or moved away is

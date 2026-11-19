@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 /**
  * Collection, then Category: two linked dropdowns for filing an item.
@@ -7,8 +8,15 @@ import { useEffect, useMemo, useState } from 'react'
  * `main_category`. Only collections that have categories are offered, because
  * an item can only be filed under a category. Renders two .form-group blocks,
  * for the caller to place inside a .form-row.
+ *
+ * `categories` is null while it is still loading. Once loaded and empty (a new
+ * installation), a note says where collections and categories are created,
+ * instead of leaving two empty dropdowns unexplained.
  */
-export default function CategoryPicker({ categories, value, onChange }) {
+const NONE = []
+
+export default function CategoryPicker({ categories: loaded, value, onChange }) {
+  const categories = loaded ?? NONE
   const collections = useMemo(() => {
     const seen = new Map()
     for (const c of categories) {
@@ -51,6 +59,12 @@ export default function CategoryPicker({ categories, value, onChange }) {
             <option key={col.id} value={col.id}>{col.name}</option>
           ))}
         </select>
+        {loaded && collections.length === 0 && (
+          <small className="text-muted" style={{ fontSize: 11 }}>
+            No categories yet. Create a collection and a category in{' '}
+            <Link to="/admin/categories">Collections &amp; Categories</Link> first.
+          </small>
+        )}
       </div>
       <div className="form-group">
         <label className="form-label">Category <span className="req">*</span></label>

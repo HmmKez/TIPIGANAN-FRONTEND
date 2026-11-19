@@ -62,7 +62,7 @@ export default function ThesisEditPage() {
   const [viewWarning, setViewWarning] = useState(location.state?.viewWarning || null)
 
   const [form, setForm] = useState(emptyForm)
-  const [categories, setCategories] = useState([])
+  const [categories, setCategories] = useState(null) // null while loading (see CategoryPicker)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -148,7 +148,7 @@ export default function ThesisEditPage() {
   }, [])
 
   useEffect(() => {
-    categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
+    categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => setCategories([]))
     loadCitations()
     loadFileVersions()
 
