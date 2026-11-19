@@ -149,6 +149,8 @@ export default function ThesisDetail() {
   // Read the authored code and name — never derive one from the other.
   const deptName = categoryName(thesis.category)
   const deptCode = categoryCode(thesis.category)
+  // The collection above the category ("Thesis"), sent with the category.
+  const collection = thesis.category?.main_category || null
   // Only staff and super admins can open an archived item at all (the API
   // refuses everyone else), so this look is only ever seen by them.
   const isArchived = thesis.status === 'archived'
@@ -160,7 +162,10 @@ export default function ThesisDetail() {
           <div className="breadcrumb">
             <Link to="/dashboard">Dashboard</Link> <span>›</span>
             <Link to="/browse">Browse</Link> <span>›</span>
-            <span>{deptCode}</span> <span>›</span>
+            {collection && (
+              <><Link to={`/browse?main_category_id=${collection.id}`}>{collection.name}</Link> <span>›</span></>
+            )}
+            <Link to={`/browse?category_id=${thesis.category_id}`}>{deptCode}</Link> <span>›</span>
             Item Details
           </div>
           <div className="page-title">Item Details</div>
@@ -178,7 +183,7 @@ export default function ThesisDetail() {
           <div>
             <b>This item is archived.</b> Students and guests cannot find or open it; only staff can.
             To publish it again, change its status in{' '}
-            <Link to="/admin/collections">Collection Management</Link>.
+            <Link to="/admin/collections">Item Management</Link>.
           </div>
         </div>
       )}
@@ -223,7 +228,8 @@ export default function ThesisDetail() {
               {thesis.adviser && <div className="row"><b>Adviser:</b> <span>{thesis.adviser}</span></div>}
               {/* Optional since 2026-10-20: many collection items state no year. */}
               {thesis.year && <div className="row"><b>Year:</b> <span>{thesis.year}</span></div>}
-              <div className="row"><b>Department:</b> <span>{deptName}</span></div>
+              {collection && <div className="row"><b>Collection:</b> <span>{collection.name}</span></div>}
+              <div className="row"><b>Category:</b> <span>{deptName}</span></div>
               {thesis.pages != null && <div className="row"><b>Pages:</b> <span>{thesis.pages} pages</span></div>}
               <div className="row">
                 <b>Status:</b>

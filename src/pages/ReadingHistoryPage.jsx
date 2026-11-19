@@ -86,7 +86,7 @@ export default function ReadingHistoryPage() {
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th>Department</th>
+                  <th>Category</th>
                   <th>Year</th>
                   <th>Last Viewed</th>
                   <th>Actions</th>

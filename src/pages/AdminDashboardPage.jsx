@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { reportsApi } from '../api/admin'
-import { categoryCode, categoryName } from '../utils/category'
+import { sortByCollection } from '../utils/category'
+import ItemsByCollectionChart from '../components/ItemsByCollectionChart'
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState(null)
@@ -12,12 +13,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     setLoading(true)
     Promise.all([reportsApi.dashboard(), reportsApi.byDepartment()])
-      .then(([d, bd]) => { setData(d.data); setByDept(bd.data || []) })
+      .then(([d, bd]) => { setData(d.data); setByDept(sortByCollection(bd.data || [])) })
       .catch(err => setError(err?.response?.data?.message || err.message))
       .finally(() => setLoading(false))
   }, [])
 
-  const maxDept = Math.max(1, ...byDept.map(x => Number(x.total) || 0))
 
   return (
     <>
@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
         <div className="stat-card">
           <div className="stat-card-icon blue"><i className="fas fa-file-alt"></i></div>
           <div className="stat-value">{loading ? '…' : (data?.total_theses ?? 0).toLocaleString()}</div>
-          <div className="stat-label">Total Collections</div>
+          <div className="stat-label">Total Items</div>
         </div>
         <div className="stat-card">
           <div className="stat-card-icon green"><i className="fas fa-users"></i></div>
@@ -76,27 +76,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="panel-body">
-            {byDept.length === 0 && !loading && (
-              <div className="text-muted" style={{ padding: 20 }}>No data yet.</div>
-            )}
-            <div className="bar-chart">
-              {byDept.map(item => (
-                <div className="bar-col" key={item.category_id}>
-                  <div
-                    className="bar"
-                    style={{ height: `${Math.max(6, (Number(item.total) / maxDept) * 100)}%` }}
-                  >
-                    <span className="bar-value">{item.total}</span>
-                  </div>
-                  {/* The code, not the name: no bar is wide enough for "College
-                      of Business and Management - Hospitality", and a name that
-                      wrapped used to lift its own bar off the baseline. */}
-                  <span className="bar-label" title={categoryName(item.category)}>
-                    {categoryCode(item.category) || `Cat ${item.category_id}`}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {/* By Collection (default) or By Category: see ItemsByCollectionChart. */}
+            <ItemsByCollectionChart rows={byDept} loading={loading} />
           </div>
         </div>
 
@@ -144,7 +125,7 @@ export default function AdminDashboardPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Title</th><th>Author</th><th>Department</th>
+                <th>Title</th><th>Author</th><th>Category</th>
                 <th>Year</th><th>Uploaded By</th><th>Status</th>
               </tr>
             </thead>

@@ -13,12 +13,14 @@ const ACTION_ICONS = {
   activate_user: 'fa-user-check', deactivate_user: 'fa-user-slash',
   reset_password: 'fa-key', grant_permission: 'fa-shield-alt', revoke_permission: 'fa-shield-alt',
   create_category: 'fa-plus', update_category: 'fa-edit', delete_category: 'fa-trash',
+  create_collection: 'fa-layer-group', update_collection: 'fa-edit', delete_collection: 'fa-trash',
+  move_category: 'fa-right-left',
   citation_copy: 'fa-quote-right',
 }
 const iconFor = (a) => ACTION_ICONS[a] || 'fa-circle-info'
 const classFor = (a) => {
   if (a?.startsWith('delete')) return 'red'
-  if (a?.startsWith('update') || a === 'reset_password') return 'orange'
+  if (a?.startsWith('update') || a?.startsWith('move') || a === 'reset_password') return 'orange'
   if (a?.startsWith('create') || a === 'upload_thesis' || a === 'activate_user') return 'green'
   return ''
 }

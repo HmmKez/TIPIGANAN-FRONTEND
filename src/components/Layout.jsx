@@ -31,9 +31,9 @@ function getMenu(isAdmin, isGuest, showSchoolRecords = false) {
     { section: 'REPOSITORY', items: [
      { to: '/browse', icon: 'fa-folder-open', label: 'Browse' },
       ...(isAdmin ? [
-        { to: '/admin/collections', icon: 'fa-folder',    label: 'Collection Management' },
+        { to: '/admin/collections', icon: 'fa-folder',    label: 'Item Management' },
         { to: '/admin/upload',      icon: 'fa-upload',     label: 'Upload Item' },
-        { to: '/admin/categories',  icon: 'fa-sitemap',    label: 'Category Management' },
+        { to: '/admin/categories',  icon: 'fa-sitemap',    label: 'Collections & Categories' },
       ] : []),
     ] },
   ]

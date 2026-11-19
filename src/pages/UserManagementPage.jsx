@@ -20,7 +20,7 @@ import { avatarUrl } from '../utils/avatar'
 const MANAGEABLE_PERMISSIONS = ['delete_accounts', 'delete_documents']
 const PERMISSION_LABELS = {
   delete_accounts: 'Delete User Accounts',
-  delete_documents: 'Delete Collections',
+  delete_documents: 'Delete Items',
 }
 
 // Staff (even with delete_accounts) can only delete accounts below their own

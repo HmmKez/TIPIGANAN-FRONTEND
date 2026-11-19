@@ -107,6 +107,13 @@ export default function DashboardPage() {
   // them are empty, so a third of the "departments" led to a blank page.
   const departmentsWithContent = categories.filter(c => visibleIn(c) > 0).length
 
+  // Categories grouped under their collection, collections in name order.
+  const collectionGroups = Object.values(categories.reduce((acc, c) => {
+    const col = c.main_category || { id: 0, name: 'Other' }
+    ;(acc[col.id] ||= { col, cats: [] }).cats.push(c)
+    return acc
+  }, {})).sort((a, b) => a.col.name.localeCompare(b.col.name))
+
   // Real activity feed: this user's own bookmarks, views, and searches,
   // merged and sorted by actual timestamp — no placeholders. Empty for a
   // brand-new account until they do something.
@@ -153,7 +160,7 @@ export default function DashboardPage() {
           to them said 19. */}
       <div className="simple-stat-grid">
         <div className="simple-stat"><div className="v">{totalItems ?? '—'}</div><div className="l">Available to Read</div></div>
-        <div className="simple-stat"><div className="v">{departmentsWithContent || '—'}</div><div className="l">Departments</div></div>
+        <div className="simple-stat"><div className="v">{departmentsWithContent || '—'}</div><div className="l">Categories</div></div>
         <div className="simple-stat"><div className="v">{newCount ?? '—'}</div><div className="l">New in {NEW_WINDOW_DAYS} Days</div></div>
         <div className="simple-stat"><div className="v">{favorites.length}</div><div className="l">My Bookmarks</div></div>
       </div>
@@ -246,14 +253,26 @@ export default function DashboardPage() {
           {categories.length === 0 && !loading && (
             <div className="text-muted" style={{ padding: 20 }}>No collections yet.</div>
           )}
-          <div className="page-nav-grid">
-            {categories.map(c => (
-              <Link key={c.id} to={`/browse?category_id=${c.id}`}>
-                <i className={`fas ${DEPT_ICONS[c.name] || 'fa-folder'}`}></i>
-                {c.name} ({visibleIn(c)})
+          {/* Grouped by collection: each collection's name opens all of it,
+              and its categories follow. It was one flat list of categories
+              under a "Browse by Collection" heading. */}
+          {collectionGroups.map(({ col, cats }) => (
+            <div key={col.id} style={{ marginBottom: 16 }}>
+              <Link to={`/browse?main_category_id=${col.id}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: 'var(--text-primary)' }}>
+                <i className="fas fa-layer-group" style={{ color: 'var(--primary-blue)' }}></i>
+                {col.name} ({cats.reduce((s, c) => s + visibleIn(c), 0)})
               </Link>
-            ))}
-          </div>
+              <div className="page-nav-grid">
+                {cats.map(c => (
+                  <Link key={c.id} to={`/browse?category_id=${c.id}`}>
+                    <i className={`fas ${DEPT_ICONS[c.name] || 'fa-folder'}`}></i>
+                    {c.name} ({visibleIn(c)})
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import RowActions from '../components/RowActions'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { thesesApi, categoriesApi } from '../api/admin'
 import ConfirmModal from '../components/ConfirmModal'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,7 +18,13 @@ export default function CollectionManagementPage() {
 
   const [searchInput, setSearchInput] = useState('')
   const [query, setQuery]         = useState('')
-  const [categoryId, setCategoryId] = useState('')
+  // ?category_id= arrives from "View Items" on Collections & Categories, so the
+  // list opens already filtered to that category.
+  const [params] = useSearchParams()
+  const [categoryId, setCategoryId] = useState(params.get('category_id') || '')
+  // The collection above the categories. A chosen category is the narrower
+  // filter; with none, the whole collection is listed.
+  const [collectionId, setCollectionId] = useState(params.get('main_category_id') || '')
   const [year, setYear]           = useState('')
   const [status, setStatus]       = useState('')
   const [sort, setSort]           = useState('recent')
@@ -34,10 +40,36 @@ export default function CollectionManagementPage() {
     categoriesApi.list().then(r => setCategories(r.data || [])).catch(() => {})
   }, [])
 
+  // Collections come with the categories (each carries its main_category).
+  const collections = useMemo(() => {
+    const seen = new Map()
+    for (const c of categories) if (c.main_category && !seen.has(c.main_category.id)) seen.set(c.main_category.id, c.main_category)
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [categories])
+  const categoriesIn = (colId) => categories
+    .filter(c => String(c.main_category_id) === String(colId))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Arriving with only ?category_id= (View Items): show its collection too.
+  useEffect(() => {
+    if (!categoryId || collectionId) return
+    const cat = categories.find(c => String(c.id) === String(categoryId))
+    if (cat) setCollectionId(String(cat.main_category_id))
+  }, [categories]) // eslint-disable-line
+
+  const pickCollection = (id) => { setCollectionId(id); setCategoryId(''); setPage(1) }
+  const pickCategory = (id) => {
+    setCategoryId(id)
+    const cat = categories.find(c => String(c.id) === String(id))
+    if (cat) setCollectionId(String(cat.main_category_id))
+    setPage(1)
+  }
+
   const load = () => {
     setLoading(true); setError(null)
     thesesApi.list({
       category_id:    categoryId || undefined,
+      main_category_id: !categoryId && collectionId ? collectionId : undefined,
       year:           year || undefined,
       q:              query || undefined,
       status:         status || undefined,
@@ -55,12 +87,12 @@ export default function CollectionManagementPage() {
       .catch(err => setError(err?.response?.data?.message || err.message))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [categoryId, year, query, page, status, sort]) // eslint-disable-line
+  useEffect(load, [categoryId, collectionId, year, query, page, status, sort]) // eslint-disable-line
 
   // A changed page or filter shows different rows, so the old ticks would point
   // at items no longer on screen — and a bulk action would change those
   // without anyone seeing them. Start from nothing selected instead.
-  useEffect(() => { setSelected(new Set()); setNotice(null) }, [categoryId, year, query, page, status])
+  useEffect(() => { setSelected(new Set()); setNotice(null) }, [categoryId, collectionId, year, query, page, status])
 
   const toggleOne = (id) => {
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -231,10 +263,10 @@ export default function CollectionManagementPage() {
       <div className="page-header">
         <div>
           <div className="breadcrumb">
-            <Link to="/admin">Dashboard</Link> <span>›</span> Collection Management
+            <Link to="/admin">Dashboard</Link> <span>›</span> Item Management
           </div>
-          <div className="page-title">Collection Management</div>
-          <div className="page-subtitle">View, edit, archive, or delete collection records.</div>
+          <div className="page-title">Item Management</div>
+          <div className="page-subtitle">View, edit, archive, or delete items.</div>
         </div>
         <Link to="/admin/upload" className="btn btn-primary">
           <i className="fas fa-plus"></i> Upload New Item
@@ -259,11 +291,23 @@ export default function CollectionManagementPage() {
           </button>
         </div>
         <div className="filter-row">
-          <select className="form-control" value={categoryId}
-                  onChange={e => { setCategoryId(e.target.value); setPage(1) }}>
-            <option value="">All Departments</option>
-            {categories.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+          <select className="form-control" value={collectionId} aria-label="Collection"
+                  onChange={e => pickCollection(e.target.value)}>
+            <option value="">All Collections</option>
+            {collections.map(col => (
+              <option key={col.id} value={col.id}>{col.name}</option>
+            ))}
+          </select>
+          {/* Grouped by collection; with a collection chosen, only its categories. */}
+          <select className="form-control" value={categoryId} aria-label="Category"
+                  onChange={e => e.target.value ? pickCategory(e.target.value) : (setCategoryId(''), setPage(1))}>
+            <option value="">All Categories</option>
+            {(collectionId ? collections.filter(col => String(col.id) === String(collectionId)) : collections).map(col => (
+              <optgroup key={col.id} label={col.name}>
+                {categoriesIn(col.id).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <select className="form-control" value={year}
@@ -339,7 +383,7 @@ export default function CollectionManagementPage() {
                          onChange={toggleAll} />
                 </th>
                 <th>Title / Author</th>
-                <th>Department</th>
+                <th>Category</th>
                 <th>Year</th>
                 <th>Pages</th>
                 <th>Status</th>
@@ -365,7 +409,7 @@ export default function CollectionManagementPage() {
                       {t.authors}{t.adviser ? ` · Adv: ${t.adviser}` : ''}
                     </small>
                   </td>
-                  <td data-label="Department"><span className="badge badge-info">{t.category?.name || '—'}</span></td>
+                  <td data-label="Category"><span className="badge badge-info">{t.category?.name || '—'}</span></td>
                   <td data-label="Year">{t.year || '—'}</td>
                   <td data-label="Pages">{t.pages || '—'}</td>
                   <td data-label="Status">

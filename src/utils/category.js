@@ -35,3 +35,25 @@ export function categoryLabel(category) {
 
   return code && code.toUpperCase() !== name.toUpperCase() ? `${code} — ${name}` : name
 }
+
+/** The collection a category belongs to ("Thesis"), when the API sent it. */
+export function collectionName(category) {
+  return category?.main_category?.name || ''
+}
+
+/** "Thesis › College of Education": collection, then category. */
+export function categoryPath(category) {
+  const col = collectionName(category)
+  const name = categoryName(category)
+  return col ? `${col} › ${name}` : name
+}
+
+/**
+ * Report rows ({ category, total }) ordered by collection, then category, so
+ * a chart's bars sit together under their collection.
+ */
+export function sortByCollection(rows) {
+  return [...rows].sort((a, b) =>
+    collectionName(a.category).localeCompare(collectionName(b.category)) ||
+    categoryName(a.category).localeCompare(categoryName(b.category)))
+}

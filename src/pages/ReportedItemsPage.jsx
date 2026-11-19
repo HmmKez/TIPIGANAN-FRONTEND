@@ -58,7 +58,7 @@ export default function ReportedItemsPage() {
             <Link to="/admin">Dashboard</Link> <span>›</span> Reported Items
           </div>
           <div className="page-title">Reported Items</div>
-          <div className="page-subtitle">Collections flagged by users for review — inspect and edit as needed, then mark resolved.</div>
+          <div className="page-subtitle">Items flagged by users for review — inspect and edit as needed, then mark resolved.</div>
         </div>
       </div>
 

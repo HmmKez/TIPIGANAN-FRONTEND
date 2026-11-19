@@ -199,7 +199,7 @@ export default function BookmarksPage() {
       }
       text += `${i + 1}. ${t.title}\n`
       text += `   Author(s): ${t.authors}\n`
-      text += `   Department: ${t.category?.name || '—'}\n`
+      text += `   Category: ${t.category?.name || '—'}\n`
       text += `   Year: ${t.year || '—'}\n`
       text += `   Saved: ${new Date(f.created_at).toLocaleDateString()}\n\n`
     })

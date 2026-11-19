@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api, { apiOrigin } from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
-import { categoryCode, categoryName } from '../utils/category'
+import { categoryCode, categoryName, categoryPath } from '../utils/category'
 
 // Dept → icon + cover color (matches the mockup styling)
 // Cosmetic only — icon and cover colour, keyed on a category's CODE. A category
@@ -98,6 +98,9 @@ export default function BrowsePage() {
 
   const [categories, setCategories] = useState([])
   const [categoryId, setCategoryId] = useState(params.get('category_id') || '')
+  // The collection ("Thesis", "Special Collections") above the categories. A
+  // chosen category narrows further; with none, the whole collection shows.
+  const [collectionId, setCollectionId] = useState(params.get('main_category_id') || '')
   // The old parameter name is still read so links made before the rename keep working.
   const [year, setYear] = useState(params.get('year') || params.get('year_published') || '')
   const [sort, setSort] = useState(params.get('sort') || 'recent')
@@ -116,6 +119,38 @@ export default function BrowsePage() {
       .catch(() => setCategories([]))
   }, [])
 
+  // Collections come with the categories (each carries its main_category).
+  // Only those that have categories can hold items, so only those are offered.
+  const collections = useMemo(() => {
+    const seen = new Map()
+    for (const c of categories) {
+      const col = c.main_category
+      if (col && !seen.has(col.id)) seen.set(col.id, col)
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [categories])
+  const categoriesIn = (colId) => categories.filter(c => String(c.main_category_id) === String(colId))
+  const visibleInCollection = (colId) => categoriesIn(colId).reduce((s, c) => s + visibleIn(c), 0)
+
+  // A category is the narrower filter; when one is chosen, the collection is
+  // implied by it and not sent separately.
+  const pickCollection = (id) => { setCollectionId(id); setCategoryId(''); setPage(1) }
+  const pickCategory = (id) => {
+    setCategoryId(id)
+    const cat = categories.find(c => String(c.id) === String(id))
+    if (cat) setCollectionId(String(cat.main_category_id))
+    setPage(1)
+  }
+  const collectionParam = !categoryId && collectionId ? collectionId : undefined
+
+  // A link carrying only category_id (older links, the detail page) still
+  // opens the right collection in the sidebar once the lists arrive.
+  useEffect(() => {
+    if (!categoryId || collectionId) return
+    const cat = categories.find(c => String(c.id) === String(categoryId))
+    if (cat) setCollectionId(String(cat.main_category_id))
+  }, [categories, categoryId, collectionId])
+
   // Fetch theses / search whenever filters change
   useEffect(() => {
     let cancelled = false
@@ -128,6 +163,7 @@ export default function BrowsePage() {
           params: {
             q: query,
             category_id: categoryId || undefined,
+            main_category_id: collectionParam,
             year: year || undefined,
             status: statusParam,
           },
@@ -135,6 +171,7 @@ export default function BrowsePage() {
       : api.get('/theses', {
           params: {
             category_id: categoryId || undefined,
+            main_category_id: collectionParam,
             year: year || undefined,
             status: statusParam,
             page,
@@ -175,24 +212,25 @@ export default function BrowsePage() {
       .finally(() => !cancelled && setLoading(false))
 
     return () => { cancelled = true }
-  }, [query, categoryId, year, statusParam, page])
+  }, [query, categoryId, collectionParam, year, statusParam, page])
 
   // Sync URL params so the page is bookmarkable / back-nav works
   useEffect(() => {
     const next = {}
     if (query)      next.q = query
     if (categoryId) next.category_id = categoryId
+    if (collectionParam) next.main_category_id = collectionParam
     if (year)       next.year = year
     if (statusParam) next.status = statusParam
     if (sort !== 'recent') next.sort = sort
     if (page !== 1) next.page = String(page)
     setParams(next, { replace: true })
-  }, [query, categoryId, year, statusParam, sort, page, setParams])
+  }, [query, categoryId, collectionParam, year, statusParam, sort, page, setParams])
 
   // Client-side sort (backend already returns latest first for /theses)
   const displayItems = useMemo(() => sortItems(items, sort), [items, sort])
 
-  const showHero = !query && !categoryId && !year && !statusParam && items.length === 0 && !loading && !error
+  const showHero = !query && !categoryId && !collectionId && !year && !statusParam && items.length === 0 && !loading && !error
 
   const runSearch = (fromResults = false) => {
     const q = fromResults ? resultsInput.trim() : heroInput.trim()
@@ -217,7 +255,7 @@ export default function BrowsePage() {
 
   const clearAllFilters = () => {
     setQuery(''); setResultsInput(''); setHeroInput('')
-    setCategoryId(''); setYear(''); setStatus(''); setSort('recent'); setPage(1)
+    setCategoryId(''); setCollectionId(''); setYear(''); setStatus(''); setSort('recent'); setPage(1)
   }
 
   // Build current year list for the dropdown
@@ -290,12 +328,28 @@ export default function BrowsePage() {
             <div className="results-controls">
               <select
                 className="filter-select"
-                value={categoryId}
-                onChange={e => { setCategoryId(e.target.value); setPage(1) }}
+                value={collectionId}
+                onChange={e => pickCollection(e.target.value)}
+                aria-label="Collection"
               >
-                <option value="">All Departments</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                <option value="">All Collections</option>
+                {collections.map(col => (
+                  <option key={col.id} value={col.id}>{col.name}</option>
+                ))}
+              </select>
+              <select
+                className="filter-select"
+                value={categoryId}
+                onChange={e => e.target.value ? pickCategory(e.target.value) : (setCategoryId(''), setPage(1))}
+                aria-label="Category"
+              >
+                <option value="">All Categories</option>
+                {(collectionId ? collections.filter(col => String(col.id) === String(collectionId)) : collections).map(col => (
+                  <optgroup key={col.id} label={col.name}>
+                    {categoriesIn(col.id).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <select
@@ -335,13 +389,20 @@ export default function BrowsePage() {
           </div>
 
           {/* Active filter chips */}
-          {(query || categoryId || year || statusParam) && (
+          {(query || categoryId || collectionId || year || statusParam) && (
             <div className="active-filters">
               {query && (
                 <span className="chip">
                   <i className="fas fa-search" style={{ fontSize: 10 }}></i>
                   "{query}"
                   <button onClick={clearQuery} title="Remove"><i className="fas fa-times"></i></button>
+                </span>
+              )}
+              {collectionId && (
+                <span className="chip">
+                  <i className="fas fa-layer-group" style={{ fontSize: 10 }}></i>
+                  {collections.find(col => String(col.id) === String(collectionId))?.name || 'Collection'}
+                  <button onClick={() => pickCollection('')} title="Remove"><i className="fas fa-times"></i></button>
                 </span>
               )}
               {categoryId && (
@@ -383,26 +444,48 @@ export default function BrowsePage() {
                 <div className="filter-panel-title">Filter Results</div>
 
                 <div className="filter-group">
-                  <div className="filter-group-label">Department</div>
+                  <div className="filter-group-label">Collection</div>
                   {categories.length === 0 && (
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
                   )}
-                  {categories.map(c => (
-                    <div key={c.id} className="filter-option">
-                      <label>
-                        <input
-                          type="radio"
-                          name="dept"
-                          checked={String(categoryId) === String(c.id)}
-                          onChange={() => { setCategoryId(c.id); setPage(1) }}
-                        />
-                        {' '}{c.name}
-                      </label>
-                      {c.active_theses_count != null && (
-                        <span className="filter-count">{visibleIn(c)}</span>
-                      )}
-                    </div>
-                  ))}
+                  {/* Two levels: each collection, and under the chosen one its
+                      categories, indented. Choosing a collection shows all of
+                      it; choosing a category narrows to that category. */}
+                  {collections.map(col => {
+                    const open = String(collectionId) === String(col.id)
+                    return (
+                      <div key={col.id}>
+                        <div className="filter-option">
+                          <label>
+                            <input
+                              type="radio"
+                              name="collection"
+                              checked={open && !categoryId}
+                              onChange={() => pickCollection(String(col.id))}
+                            />
+                            {' '}<b style={{ fontWeight: open ? 700 : 500 }}>{col.name}</b>
+                          </label>
+                          <span className="filter-count">{visibleInCollection(col.id)}</span>
+                        </div>
+                        {open && categoriesIn(col.id).map(c => (
+                          <div key={c.id} className="filter-option" style={{ paddingLeft: 20 }}>
+                            <label>
+                              <input
+                                type="radio"
+                                name="dept"
+                                checked={String(categoryId) === String(c.id)}
+                                onChange={() => pickCategory(c.id)}
+                              />
+                              {' '}{c.name}
+                            </label>
+                            {c.active_theses_count != null && (
+                              <span className="filter-count">{visibleIn(c)}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
                   {/* No "clear department" link here. Removing one filter is
                       already covered twice over — the active-filter chip above
                       the results has its own X, and Reset Filters below clears
@@ -553,7 +636,7 @@ export default function BrowsePage() {
                               read "CAST" and others "INSTITUTIONAL PUBLICATIONS".
                               Full name on hover, since IP/SBC aren't self-evident. */}
                           {deptCode && (
-                            <span className="result-dept-badge" title={cat}>{deptCode}</span>
+                            <span className="result-dept-badge" title={categoryPath(t.category)}>{deptCode}</span>
                           )}
                           {deptCode && <span className="dot"></span>}
                           {t.year && (

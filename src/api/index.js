@@ -9,6 +9,12 @@ export const categoriesApi = {
   remove: (id) => api.delete(`/categories/${id}`),
 }
 
+// Collections — the level above categories ("main categories" in the API).
+// Each one in the list carries its `categories`.
+export const collectionsApi = {
+  list: () => api.get('/main-categories'),
+}
+
 // Favorites (Bookmarks)
 export const favoritesApi = {
   list: () => api.get('/favorites'),
@@ -80,7 +86,7 @@ export const landingApi = {
   resetHero: () => api.delete('/landing/hero'),
   // Which collections are featured. An empty array means "show none" and is
   // distinct from resetCollections(), which means "show them all again".
-  updateCollections: (categoryIds) => api.put('/landing/collections', { category_ids: categoryIds }),
+  updateCollections: (collectionIds) => api.put('/landing/collections', { main_category_ids: collectionIds }),
   resetCollections: () => api.delete('/landing/collections'),
 }
 

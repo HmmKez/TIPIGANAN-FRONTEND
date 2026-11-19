@@ -2727,6 +2727,12 @@ textarea.form-control { resize: vertical; min-height: 80px; }
    filtering entirely, with nothing on screen to hint that it ever existed. */
 @media (max-width: 992px) { .results-sidebar-panel { display: none; } }
 @media (min-width: 993px) { .results-controls      { display: none; } }
+/* Below that breakpoint the dropdowns sit in an even two-column grid instead of
+   wrapping at their text widths (Collection narrow, Category full, Year narrow). */
+@media (max-width: 992px) {
+  .results-controls { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .results-controls .filter-select { width: 100%; min-width: 0; }
+}
 
 /* ===== Secure PDF Viewer — Watermark Overlay ===== */
 /* The viewer's status bar is a fixed 24px strip. On a phone its two labels have
@@ -2828,3 +2834,102 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .activate-check input { margin-top: 3px; flex-shrink: 0; }
 .activate-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; max-width: 760px; }
 .field-error { display: block; color: #d1242f; font-size: 12px; margin-top: 4px; }
+
+/* ===== Collections & Categories: collection carousel + category cards =====
+   (2026-11-19, Option B). Self-contained: removing this block and restoring the
+   table version of CategoryManagementPage.jsx undoes the carousel completely. */
+.cc-carousel-wrap { position: relative; margin-bottom: 24px; }
+.cc-carousel {
+  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory;
+  scroll-behavior: smooth; padding: 4px 4px 10px; scrollbar-width: thin;
+}
+.cc-carousel:focus-visible { outline: 2px solid var(--primary-blue-light); outline-offset: 2px; border-radius: 12px; }
+.cc-col-card {
+  flex: 0 0 240px; scroll-snap-align: start; text-align: left; cursor: pointer;
+  background: var(--bg-card); border: 2px solid var(--border-light); border-radius: 12px;
+  box-shadow: var(--shadow-sm); overflow: hidden; padding: 0; font: inherit; color: inherit;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+}
+.cc-col-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.cc-col-card.selected { border-color: var(--primary-blue); box-shadow: var(--shadow-lg); }
+.cc-col-cover {
+  height: 96px; background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+  background-size: cover; background-position: center; position: relative;
+}
+.cc-col-check {
+  position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--primary-blue); color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.cc-col-body { padding: 12px 14px 14px; }
+.cc-col-name { font-weight: 700; font-size: 14.5px; color: var(--text-primary); margin: 6px 0 2px; overflow-wrap: anywhere; }
+.cc-col-meta { font-size: 12px; color: var(--text-muted); }
+.cc-col-new {
+  flex: 0 0 180px; scroll-snap-align: start; border: 2px dashed var(--border-medium); border-radius: 12px;
+  background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 13px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 180px;
+}
+.cc-col-new:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
+.cc-arrow {
+  position: absolute; top: 50%; transform: translateY(-60%); z-index: 2; width: 38px; height: 38px;
+  border-radius: 50%; border: 1px solid var(--border-light); background: var(--bg-white); color: var(--primary-blue);
+  box-shadow: var(--shadow-md); cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.cc-arrow:hover { background: var(--bg-hover); }
+.cc-arrow.left { left: -14px; }
+.cc-arrow.right { right: -14px; }
+.cc-cat-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; padding: 20px 22px;
+}
+.cc-cat-card {
+  border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-subtle);
+  padding: 16px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .2s, transform .2s;
+}
+.cc-cat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.cc-cat-top { display: flex; align-items: center; gap: 12px; }
+.cc-cat-name { font-weight: 600; font-size: 13.5px; color: var(--text-primary); line-height: 1.35; overflow-wrap: anywhere; }
+.cc-cat-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.cc-cat-count { font-size: 12px; color: var(--text-muted); }
+.cc-empty { padding: 30px; text-align: center; color: var(--text-muted); }
+@media (max-width: 768px) {
+  .cc-arrow { display: none; }          /* phones swipe instead */
+  .cc-col-card { flex-basis: 78%; }
+  .cc-cat-grid { padding: 16px; grid-template-columns: 1fr; }
+}
+/* ===== end Collections & Categories carousel ===== */
+
+/* Reports & Analytics: a heading over each half of the page (overview vs. the
+   filtered user-activity reports). */
+.report-section-head { margin: 8px 0 14px; }
+.report-section-head h2 { font-size: 16px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.report-section-head h2 i { color: var(--primary-blue); font-size: 15px; }
+.report-section-head p { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+
+/* ===== Printing =====
+   Without these, a printout (Reports' Print button, or Ctrl+P anywhere) carried
+   the sidebar and top bar on every page, the buttons, empty date boxes, and
+   panels split across pages. Light colours are forced so a reader using the
+   dark theme still prints dark text on white. */
+.print-only { display: none; }
+@media print {
+  :root {
+    --bg-main: #fff !important; --bg-white: #fff !important; --bg-card: #fff !important;
+    --bg-subtle: #fff !important; --bg-hover: #F0F3FA !important;
+    --text-primary: #2C3142 !important; --text-secondary: #4A4A4A !important;
+    --text-muted: #666 !important; --text-label: #666 !important;
+    --border-light: #D6DAE5 !important; --border-medium: #C4C9D6 !important;
+  }
+  body, .app-container { background: #fff !important; }
+  .sidebar, .sidebar-backdrop, .topbar, .footer, .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .main-wrap, .main-wrap.sidebar-open { margin-left: 0 !important; }
+  .content { padding: 0 !important; }
+  .panel, .stat-card { box-shadow: none !important; break-inside: avoid; }
+  .stat-card:hover { transform: none; }
+  .panel-grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .report-section-head { break-after: avoid; }
+  /* 24 hourly bars on A4: tighter gaps and smaller labels, so "00h" fits instead of "0…". */
+  .bar-chart { gap: 6px; }
+  .bar-label { font-size: 9px; text-overflow: clip; overflow: visible; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

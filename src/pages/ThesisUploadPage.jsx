@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { thesesApi, categoriesApi, scanInboxApi } from '../api/admin'
+import CategoryPicker from '../components/CategoryPicker'
 import { citationsApi } from '../api'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -254,7 +255,7 @@ export default function ThesisUploadPage() {
         <div>
           <div className="breadcrumb">
             <Link to="/admin">Dashboard</Link> <span>›</span>
-            <Link to="/admin/collections">Collection Management</Link> <span>›</span>
+            <Link to="/admin/collections">Item Management</Link> <span>›</span>
             Upload Item
           </div>
           <div className="page-title">Upload New Item</div>
@@ -337,16 +338,10 @@ export default function ThesisUploadPage() {
                   </div>
                 </div>
                 <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Category / Department <span className="req">*</span></label>
-                    <select className="form-control" required
-                            value={form.category_id} onChange={e => update('category_id', e.target.value)}>
-                      <option value="">— Select Category —</option>
-                      {categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <CategoryPicker categories={categories} value={form.category_id}
+                                  onChange={id => update('category_id', id)} />
+                </div>
+                <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Number of Pages</label>
                     <input type="number" className="form-control"

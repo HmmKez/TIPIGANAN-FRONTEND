@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MDC_LOGO } from '../config/branding'
 import { useAuth } from '../contexts/AuthContext'
-import { landingApi, categoriesApi } from '../api'
+import { landingApi, collectionsApi } from '../api'
 import { apiOrigin } from '../api/axios'
 
 const landingStyles = `
@@ -134,7 +134,9 @@ const landingStyles = `
   .lp-feature-card h3 { font-size:17px; font-weight:700; margin-bottom:8px; color:#2C3142; }
   .lp-feature-card p { font-size:13.5px; color:#8A8A8A; line-height:1.6; }
 
-  .lp-dept-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px; }
+  /* Capped width, centred: there are only a few collections, and one card
+     stretched across the whole row looked like a banner, not a card. */
+  .lp-dept-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 280px)); justify-content:center; gap: 22px; }
   .lp-dept-card {
     position:relative; height:230px; border-radius:16px; overflow:hidden; display:block;
     text-decoration:none; color:#fff; box-shadow: 0 2px 8px rgba(20,25,40,.08);
@@ -321,7 +323,7 @@ export default function LandingPage() {
   const fileRef = useRef(null)
 
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [allCategories, setAllCategories] = useState([])
+  const [allCollections, setAllCollections] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
   const [pickerBusy, setPickerBusy] = useState(false)
   const [pickerError, setPickerError] = useState('')
@@ -374,16 +376,16 @@ export default function LandingPage() {
   // --- Featured collections (Super Admin) ---------------------------------
   // The landing payload only returns the collections that are CURRENTLY shown,
   // so picking from it alone could never re-add a hidden one. The editor pulls
-  // the full category list separately and treats the payload as the "checked"
+  // the full collection list separately and treats the payload as the "checked"
   // set.
   const openPicker = async () => {
     setPickerError('')
     setSelectedIds(collections.map(c => c.id))
     setPickerOpen(true)
-    if (!allCategories.length) {
+    if (!allCollections.length) {
       try {
-        const res = await categoriesApi.list()
-        setAllCategories(res.data?.data || res.data || [])
+        const res = await collectionsApi.list()
+        setAllCollections(res.data?.data || res.data || [])
       } catch {
         setPickerError('Could not load the collections.')
       }
@@ -505,7 +507,7 @@ export default function LandingPage() {
         {/* Real counts from the database — these were invented figures before. */}
         <div className="lp-stat-strip">
           <div><div className="value">{fmt(stats?.total_theses)}</div><div className="label">Total Items</div></div>
-          <div><div className="value">{fmt(stats?.total_categories)}</div><div className="label">Collections</div></div>
+          <div><div className="value">{fmt(stats?.total_collections)}</div><div className="label">Collections</div></div>
           <div><div className="value">{fmt(stats?.total_users)}</div><div className="label">Users</div></div>
           <div><div className="value">{fmt(stats?.total_views)}</div><div className="label">Total Views</div></div>
         </div>
@@ -567,14 +569,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Was "Browse by Department" — but the categories are no longer only
-            departments (Faculty Research, Institutional Publications, Special
-            Boholano Creations, Special Collections). "Collections" is what they
-            actually are, and it matches the repository's own name. */}
+        {/* Was "Browse by Department", then one card per category. The cards are
+            now COLLECTIONS (Thesis, Faculty Research, Special Collections…), the
+            level above categories; each opens Browse filtered to everything in
+            it. */}
         <section className="lp-section" id="collections" style={{background:'var(--bg-white)'}}>
           <div className="lp-container">
             <h2>Explore the Collections</h2>
-            <p className="subtitle">Browse the archive by collection — academic departments, faculty research, institutional publications, and Boholano special collections.</p>
+            <p className="subtitle">Browse the archive by collection — theses from every department, faculty research, institutional publications, and special collections.</p>
 
             {isSuperAdmin && (
               <div className="lp-coll-admin">
@@ -588,15 +590,15 @@ export default function LandingPage() {
               <div className="lp-coll-picker">
                 <div className="lp-coll-picker-head">
                   <span>Shown on this page</span>
-                  <span className="lp-coll-count">{selectedIds.length} of {allCategories.length} selected</span>
+                  <span className="lp-coll-count">{selectedIds.length} of {allCollections.length} selected</span>
                 </div>
 
-                {allCategories.length === 0 && !pickerError && (
+                {allCollections.length === 0 && !pickerError && (
                   <div className="lp-coll-empty"><i className="fas fa-spinner fa-spin"></i> Loading…</div>
                 )}
 
                 <div className="lp-coll-list">
-                  {allCategories.map(c => (
+                  {allCollections.map(c => (
                     <label key={c.id} className="lp-coll-item">
                       <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleId(c.id)} />
                       <span>{c.name}</span>
@@ -631,10 +633,10 @@ export default function LandingPage() {
             ) : (
               <div className="lp-dept-grid">
                 {collections.map(c => (
-                  // Carries the category through to Browse, which already reads
-                  // ?category_id — so the card lands on that collection's items,
+                  // Carries the collection through to Browse, which reads
+                  // ?main_category_id — so the card lands on that collection's items,
                   // not an unfiltered list.
-                  <Link to={`/browse?category_id=${c.id}`} key={c.id} className="lp-dept-card">
+                  <Link to={`/browse?main_category_id=${c.id}`} key={c.id} className="lp-dept-card">
                     <div className="lp-dept-photo" style={coverStyle(c)}></div>
                     <div className="lp-dept-body">
                       <h4>{c.name}</h4>

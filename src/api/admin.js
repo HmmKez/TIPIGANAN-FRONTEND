@@ -59,6 +59,24 @@ export const categoriesApi = {
   },
 }
 
+// ============ COLLECTIONS (the level above categories) ============
+// "Main categories" in the API; "Collections" on screen.
+export const collectionsApi = {
+  list:   ()          => api.get('/main-categories'),
+  create: (data)      => api.post('/main-categories', data),
+  update: (id, data)  => api.put(`/main-categories/${id}`, data),
+  remove: (id)        => api.delete(`/main-categories/${id}`),
+  // Every category in collection `id` (with their items) into `targetId`.
+  moveCategories: (id, targetId) => api.post(`/main-categories/${id}/move-categories`, { target_id: targetId }),
+  uploadCoverImage: (id, file) => {
+    const formData = new FormData()
+    formData.append('cover_image', file)
+    return api.post(`/main-categories/${id}/cover-image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+}
+
 // ============ USERS (Staff + Super Admin) ============
 export const usersApi = {
   list:    (params) => api.get('/users', { params }),

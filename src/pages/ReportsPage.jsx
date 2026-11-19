@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { reportsApi } from '../api/admin'
 import { useToast } from '../components/Toast'
-import { categoryCode, categoryName } from '../utils/category'
+import { sortByCollection } from '../utils/category'
+import ItemsByCollectionChart from '../components/ItemsByCollectionChart'
 
 // The `value`s are the backend's route segments and must not change. Only the
 // labels do: a "collection" IS a category now, so "Collections by Department"
@@ -11,7 +12,7 @@ import { categoryCode, categoryName } from '../utils/category'
 const REPORT_TYPES = [
   { value: 'dashboard',      label: 'Dashboard Summary' },
   { value: 'most-cited',     label: 'Most Cited Theses' },
-  { value: 'by-department',  label: 'Items by Collection' },
+  { value: 'by-department',  label: 'Items by Collection and Category' },
   { value: 'by-year',        label: 'Items by Year' },
   { value: 'most-searched',  label: 'Most Searched Keywords' },
   { value: 'users-online',   label: 'Users Online' },
@@ -65,7 +66,7 @@ export default function ReportsPage() {
     ])
       .then(([d, dep, yr]) => {
         setDashboard(d.data)
-        setByDept(dep.data || [])
+        setByDept(sortByCollection(dep.data || []))
         setByYear(yr.data || [])
       })
       .catch(err => setError(err?.response?.data?.message || err.message))
@@ -89,7 +90,6 @@ export default function ReportsPage() {
       .finally(() => setFiltering(false))
   }, [roles.join(','), dateFrom, dateTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const maxDept = Math.max(1, ...byDept.map(x => Number(x.total) || 0))
   const maxYear = Math.max(1, ...byYear.map(x => Number(x.total) || 0))
   const maxHour = Math.max(1, ...usersOnline.map(x => Number(x.users_online) || 0))
 
@@ -102,7 +102,9 @@ export default function ReportsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${reportType}.pdf`
+      // Named after the report and the day, e.g. items-by-collection-and-category-2026-11-19.pdf,
+      // not the internal code ("by-department"), and two downloads on different days do not clash.
+      a.download = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${new Date().toISOString().slice(0, 10)}.pdf`
       a.click()
       URL.revokeObjectURL(url)
       notify(`${label} PDF downloaded.`, 'success')
@@ -122,8 +124,10 @@ export default function ReportsPage() {
           </div>
           <div className="page-title">Reports &amp; Analytics</div>
           <div className="page-subtitle">Generate insights from the special collections repository.</div>
+          {/* Printed pages say when they were printed. */}
+          <div className="print-only page-subtitle">Printed {new Date().toLocaleString()}</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="no-print" style={{ display: 'flex', gap: 8 }}>
           <div style={{ position: 'relative', display: 'inline-block' }}>
             <button className="btn btn-primary" onClick={() => setExportMenuOpen(v => !v)} disabled={!!exportingType}>
               <i className={`fas ${exportingType ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
@@ -161,9 +165,89 @@ export default function ReportsPage() {
         </div>
       )}
 
+      {/* Two halves. The top is whole-repository figures, which the filters
+          never change; the filters sit with the half they DO change. They used
+          to be at the very top, so changing one appeared to do nothing until
+          the reader scrolled down to the reports it affects. */}
+      <div className="report-section-head">
+        <h2><i className="fas fa-database"></i> Repository Overview</h2>
+        <p>Totals for the whole repository. The filters below do not change these.</p>
+      </div>
+      {/* KPI Row */}
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-card-icon blue"><i className="fas fa-file-alt"></i></div>
+          <div className="stat-value">{loading ? '…' : (dashboard?.total_theses ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Total Items</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-icon green"><i className="fas fa-users"></i></div>
+          <div className="stat-value">{loading ? '…' : (dashboard?.total_users ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Activated Accounts</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-icon purple"><i className="fas fa-quote-right"></i></div>
+          <div className="stat-value">{loading ? '…' : (dashboard?.total_citations ?? 0).toLocaleString()}</div>
+          <div className="stat-label">Citations Logged</div>
+        </div>
+      </div>
+
+      <div className="panel-grid-2">
+        {/* Items per collection — see AdminDashboardPage: the categories are no
+            longer only departments, and the axis shows the code because no bar
+            is wide enough for a full college name. */}
+        <div className="panel">
+          <div className="panel-header">
+            <div className="panel-title">
+              <i className="fas fa-chart-bar" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
+              Items by Collection
+            </div>
+          </div>
+          <div className="panel-body">
+            {/* By Collection (default) or By Category: see ItemsByCollectionChart. */}
+            <ItemsByCollectionChart rows={byDept} loading={loading} emptyText="No data." />
+          </div>
+        </div>
+
+        {/* By Year */}
+        <div className="panel">
+          <div className="panel-header">
+            <div className="panel-title">
+              <i className="fas fa-chart-line" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
+              Items by Year
+            </div>
+          </div>
+          <div className="panel-body">
+            {byYear.length === 0 && !loading && <div className="text-muted" style={{ padding: 20 }}>No data.</div>}
+            <div className="bar-chart">
+              {byYear.map(item => (
+                <div className="bar-col" key={item.year ?? 'none'}>
+                  <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxYear) * 100)}%` }}>
+                    <span className="bar-value">{item.total}</span>
+                  </div>
+                  <span className="bar-label">{item.year ?? 'No year'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="report-section-head">
+        <h2><i className="fas fa-chart-column"></i> User Activity</h2>
+        <p>Most Cited, Most Searched and Users Online. Narrow them by role and date.</p>
+      </div>
+      {/* On paper the controls are useless, so the printout states the
+          filters in use instead. */}
+      <p className="print-only" style={{ fontSize: 13, marginBottom: 12 }}>
+        <b>Filters:</b>{' '}
+        {roles.length ? ROLE_OPTIONS.filter(o => roles.includes(o.value)).map(o => o.label).join(' and ') : 'All roles'}
+        {' · '}
+        {dateFrom || dateTo ? `${dateFrom || 'the beginning'} to ${dateTo || 'today'}` : 'All dates'}
+      </p>
       {/* Activity filters — apply to Most Cited, Most Searched, and Users
           Online below (the reports driven by who did what) */}
-      <div className="panel" style={{ marginBottom: 16 }}>
+      <div className="panel no-print" style={{ marginBottom: 16 }}>
         <div className="panel-body" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
@@ -200,77 +284,6 @@ export default function ReportsPage() {
           )}
 
           {filtering && <span className="text-muted" style={{ fontSize: 12 }}><i className="fas fa-spinner fa-spin"></i> Updating…</span>}
-        </div>
-      </div>
-
-      {/* KPI Row */}
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-card-icon blue"><i className="fas fa-file-alt"></i></div>
-          <div className="stat-value">{loading ? '…' : (dashboard?.total_theses ?? 0).toLocaleString()}</div>
-          <div className="stat-label">Total Collections</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon green"><i className="fas fa-users"></i></div>
-          <div className="stat-value">{loading ? '…' : (dashboard?.total_users ?? 0).toLocaleString()}</div>
-          <div className="stat-label">Activated Accounts</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon purple"><i className="fas fa-quote-right"></i></div>
-          <div className="stat-value">{loading ? '…' : (dashboard?.total_citations ?? 0).toLocaleString()}</div>
-          <div className="stat-label">Citations Logged</div>
-        </div>
-      </div>
-
-      <div className="panel-grid-2">
-        {/* Items per collection — see AdminDashboardPage: the categories are no
-            longer only departments, and the axis shows the code because no bar
-            is wide enough for a full college name. */}
-        <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title">
-              <i className="fas fa-chart-bar" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Items by Collection
-            </div>
-          </div>
-          <div className="panel-body">
-            {byDept.length === 0 && !loading && <div className="text-muted" style={{ padding: 20 }}>No data.</div>}
-            <div className="bar-chart">
-              {byDept.map(item => (
-                <div className="bar-col" key={item.category_id}>
-                  <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxDept) * 100)}%` }}>
-                    <span className="bar-value">{item.total}</span>
-                  </div>
-                  <span className="bar-label" title={categoryName(item.category)}>
-                    {categoryCode(item.category) || `#${item.category_id}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* By Year */}
-        <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title">
-              <i className="fas fa-chart-line" style={{ color: 'var(--primary-blue)', marginRight: 6 }}></i>
-              Items by Year
-            </div>
-          </div>
-          <div className="panel-body">
-            {byYear.length === 0 && !loading && <div className="text-muted" style={{ padding: 20 }}>No data.</div>}
-            <div className="bar-chart">
-              {byYear.map(item => (
-                <div className="bar-col" key={item.year ?? 'none'}>
-                  <div className="bar" style={{ height: `${Math.max(6, (Number(item.total) / maxYear) * 100)}%` }}>
-                    <span className="bar-value">{item.total}</span>
-                  </div>
-                  <span className="bar-label">{item.year ?? 'No year'}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
